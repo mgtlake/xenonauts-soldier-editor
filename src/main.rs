@@ -2,6 +2,7 @@ use clap::Parser;
 use std::error::Error;
 use std::fs;
 
+mod save;
 mod soldier;
 
 #[derive(Parser, Debug)]
@@ -15,6 +16,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let file = fs::read(args.path)?;
-    println!("{:?}", soldier::parse_soldier(&file).unwrap().0);
+    println!("{:?}", save::parse_save(&file).unwrap().0);
     Result::Ok(())
 }
