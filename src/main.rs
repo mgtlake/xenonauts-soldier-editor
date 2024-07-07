@@ -16,6 +16,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let file = fs::read(args.path)?;
-    println!("{:?}", save::parse_save(&file).unwrap().0);
+    let save = save::parse_save(&file).unwrap().1;
+    println!("File length {}", file.len());
+    println!("Before soldiers length {}", save.before_soldiers.len());
+    println!("After soldiers length {}", save.after_soldiers.len());
+    // println!("{:x?}", save.after_soldiers);
     Result::Ok(())
 }
