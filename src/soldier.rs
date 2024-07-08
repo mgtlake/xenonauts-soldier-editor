@@ -1,7 +1,7 @@
 use hex_literal::hex;
 use nom::{
-    bytes::complete::{is_a, tag, take, take_until, take_while},
-    multi::{length_data, length_value},
+    bytes::complete::{tag, take, take_until},
+    multi::length_data,
     number::complete::{le_u16, le_u32, le_u8},
     sequence::{delimited, tuple},
     IResult,
@@ -64,7 +64,7 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
             experience,
             _unknown_part_two, // TODO figure this out
             carrier,
-            _unknown_number, // TODO figure this out
+            _unknown_number,         // TODO figure this out
             _another_unknown_number, // TODO figure this out
             gender,
             _,
@@ -93,21 +93,6 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
         )),
         tag(SOLDIER_END),
     )(input)?;
-    // println!("{:x?}", Soldier {
-    //     id,
-    //     nationality,
-    //     name,
-    //     race,
-    //     face_number,
-    //     nation,
-    //     stats: stats.clone(),
-    //     xp,
-    //     age,
-    //     regiment,
-    //     experience,
-    //     carrier,
-    //     gender
-    // });
     IResult::Ok((
         unparsed,
         Soldier {
@@ -123,13 +108,12 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
             regiment,
             experience,
             carrier,
-            gender
+            gender,
         },
     ))
 }
 
 fn parse_soldier_stats(input: &[u8]) -> IResult<&[u8], SoldierStats> {
-    println!("Parsing soldier stats");
     let (
         unparsed,
         (
@@ -150,7 +134,6 @@ fn parse_soldier_stats(input: &[u8]) -> IResult<&[u8], SoldierStats> {
         le_u32, le_u32, le_u32, le_u32, le_u32, le_u32, le_u32, le_u32, le_u32, le_u32, le_u32,
         le_u32,
     ))(input)?;
-    println!("Parsed soldier stats");
     IResult::Ok((
         unparsed,
         SoldierStats {
@@ -168,4 +151,45 @@ fn parse_soldier_stats(input: &[u8]) -> IResult<&[u8], SoldierStats> {
             bravery_original,
         },
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs, path::PathBuf};
+
+    use super::*;
+
+    #[test]
+    fn it_parses_soldier() {
+        let filepath: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests", "single_soldier.sav"]
+            .iter()
+            .collect();
+        let file = fs::read(filepath).unwrap();
+
+        let (_, soldier) = parse_soldier(&file).unwrap();
+        assert_eq!(soldier.id, 23);
+        assert_eq!(soldier.nationality, b"Japanese");
+        assert_eq!(soldier.name, b"Ruri Yasuda");
+        assert_eq!(soldier.race, b"asi");
+        assert_eq!(soldier.face_number, 3);
+        assert_eq!(soldier.nation, b"japan");
+        assert_eq!(soldier.xp, 9);
+        assert_eq!(soldier.regiment, b"regiment.japan1");
+        assert_eq!(soldier.experience, b"experience.none");
+        assert_eq!(soldier.carrier, b"Charlie - 1/13");
+        assert_eq!(soldier.gender, 0);
+
+        assert_eq!(soldier.stats.time_units_current, 54);
+        assert_eq!(soldier.stats.health_current, 55);
+        assert_eq!(soldier.stats.strength_current, 49);
+        assert_eq!(soldier.stats.accuracy_current, 67);
+        assert_eq!(soldier.stats.reflexes_current, 63);
+        assert_eq!(soldier.stats.bravery_current, 59);
+        assert_eq!(soldier.stats.time_units_original, 54);
+        assert_eq!(soldier.stats.health_original, 55);
+        assert_eq!(soldier.stats.strength_original, 49);
+        assert_eq!(soldier.stats.accuracy_original, 67);
+        assert_eq!(soldier.stats.reflexes_original, 63);
+        assert_eq!(soldier.stats.bravery_original, 59);
+    }
 }
