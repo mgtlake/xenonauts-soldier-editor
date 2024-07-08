@@ -9,6 +9,21 @@ pub struct Save<'a> {
     pub after_soldiers: &'a [u8],
 }
 
+impl Save<'_> {
+    fn serialise(self) -> Vec<u8> {
+        [
+            self.before_soldiers,
+            &self
+                .soldiers
+                .iter()
+                .flat_map(|soldier| soldier.serialise())
+                .collect::<Vec<u8>>(),
+            self.after_soldiers,
+        ]
+        .concat()
+    }
+}
+
 pub fn parse_save(input: &[u8]) -> IResult<&[u8], Save> {
     let (unparsed, before_soldiers) = take_until(SOLDIER_START)(input)?;
     let (after_soldiers, soldiers) = many0(soldier::parse_soldier)(unparsed)?;
@@ -42,6 +57,18 @@ mod tests {
     }
 
     #[test]
+    fn it_parses_just_soldier_round_trip() {
+        let filepath: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests", "single_soldier.sav"]
+            .iter()
+            .collect();
+        let file = fs::read(filepath).unwrap();
+
+        let (_, save) = parse_save(&file).unwrap();
+        let output = save.serialise();
+        assert_eq!(file, output);
+    }
+
+    #[test]
     fn it_parses_full_save() {
         let filepath: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests", "full_save.sav"]
             .iter()
@@ -52,5 +79,17 @@ mod tests {
         assert_eq!(save.before_soldiers.len(), 2081);
         assert_eq!(save.soldiers.len(), 22);
         assert_eq!(save.after_soldiers.len(), 23740);
+    }
+
+    #[test]
+    fn it_parses_full_save_round_trip() {
+        let filepath: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests", "full_save.sav"]
+            .iter()
+            .collect();
+        let file = fs::read(filepath).unwrap();
+
+        let (_, save) = parse_save(&file).unwrap();
+        let output = save.serialise();
+        assert_eq!(file, output);
     }
 }
