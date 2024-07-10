@@ -10,14 +10,14 @@ pub struct Save {
 }
 
 impl Save {
-    fn serialise(self) -> Vec<u8> {
+    pub fn serialise(&self) -> Vec<u8> {
         [
-            self.before_soldiers,
+            self.before_soldiers.clone(),
             self.soldiers
                 .iter()
                 .flat_map(|soldier| soldier.serialise())
                 .collect(),
-            self.after_soldiers,
+            self.after_soldiers.clone(),
         ]
         .concat()
     }

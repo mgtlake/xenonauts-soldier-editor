@@ -14,9 +14,14 @@ pub fn run() -> iced::Result {
     Editor::run(Settings::default())
 }
 
-struct Editor {
-    filepath: Option<PathBuf>,
-    save: Option<Save>,
+// struct SaveFile {
+//     path: PathBuf,
+//     save: Save,
+// }
+
+enum Editor {
+    NoData,
+    Save { path: PathBuf, save: Save },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -29,10 +34,7 @@ impl Sandbox for Editor {
     type Message = Message;
 
     fn new() -> Self {
-        Self {
-            filepath: None,
-            save: None,
-        }
+        Editor::NoData
     }
 
     fn title(&self) -> String {
@@ -48,42 +50,46 @@ impl Sandbox for Editor {
 
                 if let Some(path) = path {
                     let save_or_error = load_save(&path);
-                    self.save = match save_or_error {
-                        Ok(save) => Some(save),
+                    *self = match save_or_error {
+                        Ok(save) => Editor::Save { path, save },
                         Err(e) => {
                             MessageDialog::new()
                                 .set_level(MessageLevel::Error)
                                 .set_title("Could not open save file!")
                                 .set_description(format!("{:#?}", e))
                                 .show();
-                            None
+                            Editor::NoData
                         }
                     };
-                    if self.save.is_some() {
-                        self.filepath = Some(path);
+                }
+            }
+            Message::SaveFile => {
+                if let Editor::Save { path, save } = &self {
+                    if let Err(e) = fs::write(path, save.serialise()) {
+                        MessageDialog::new()
+                            .set_level(MessageLevel::Error)
+                            .set_title("Could not write updated save file!")
+                            .set_description(format!("{:#?}", e))
+                            .show();
                     }
                 }
             }
-            Message::SaveFile => {}
         }
     }
 
     fn view(&self) -> Element<Message> {
         row![
             button("Open ").padding(10).on_press(Message::OpenFile),
-            text(
-                self
-                    .filepath
-                    .as_ref()
-                    .map(|x| x.as_os_str())
-                    .and_then(|x| x.to_str())
-                    .unwrap_or("")
-            )
+            text(match self {
+                Editor::Save { path, .. } => path.as_os_str().to_str().unwrap_or(""),
+                Editor::NoData => "",
+            })
             .size(20),
             horizontal_space().width(Length::Fill),
-            button("Save")
-                .padding(10)
-                .on_press_maybe(self.save.as_ref().map(|_| Message::SaveFile))
+            button("Save").padding(10).on_press_maybe(match self {
+                Editor::Save { .. } => Some(Message::SaveFile),
+                Editor::NoData => None,
+            })
         ]
         .spacing(20)
         .padding(10)
