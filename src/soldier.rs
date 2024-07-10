@@ -16,54 +16,54 @@ pub const SOLDIER_START: &[u8] = hex!("4D 41 52 4B 07 00 00 00 53 6F 6C 64 69 65
 const SOLDIER_END: &[u8] = hex!("4D 41 52 4B 08 00 00 00 53 6F 6C 64 69 65 72 32").as_slice();
 
 #[derive(Debug)]
-pub struct Soldier<'a> {
+pub struct Soldier {
     id: u32,
-    nationality: &'a [u8],
-    name: &'a [u8],
-    race: &'a [u8],
+    nationality: Vec<u8>,
+    name: Vec<u8>,
+    race: Vec<u8>,
     face_number: u32,
-    nation: &'a [u8],
+    nation: Vec<u8>,
     stats: SoldierStats,
     xp: u32,
     age: u16,
-    regiment: &'a [u8],
-    experience: &'a [u8],
-    carrier: &'a [u8],
+    regiment: Vec<u8>,
+    experience: Vec<u8>,
+    carrier: Vec<u8>,
     unknown_number: u32,
     another_unknown_number: u32,
     gender: u8,
-    remaining_bytes: &'a [u8],
+    remaining_bytes: Vec<u8>,
 }
 
-impl Soldier<'_> {
+impl Soldier {
     pub fn serialise(&self) -> Vec<u8> {
         [
             SOLDIER_START,
             &self.id.to_le_bytes(),
             &(self.nationality.len() as u32).to_le_bytes(),
-            self.nationality,
+            &self.nationality,
             &(self.name.len() as u32).to_le_bytes(),
-            self.name,
+            &self.name,
             &(self.race.len() as u32).to_le_bytes(),
-            self.race,
+            &self.race,
             &self.face_number.to_le_bytes(),
             &(self.nation.len() as u32).to_le_bytes(),
-            self.nation,
+            &self.nation,
             &self.stats.serialise(),
             &self.xp.to_le_bytes(),
             &[b'\0'; 38], // TODO replace with parsed data
             &self.age.to_le_bytes(),
             &(self.regiment.len() as u32).to_le_bytes(),
-            self.regiment,
+            &self.regiment,
             &(self.experience.len() as u32).to_le_bytes(),
-            self.experience,
+            &self.experience,
             &[b'\0'; 4], // TODO replace with parsed data
             &(self.carrier.len() as u32).to_le_bytes(),
-            self.carrier,
+            &self.carrier,
             &self.unknown_number.to_le_bytes(),
             &self.another_unknown_number.to_le_bytes(),
             &self.gender.to_le_bytes(),
-            self.remaining_bytes,
+            &self.remaining_bytes,
             SOLDIER_END,
         ]
         .concat()
@@ -121,21 +121,21 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
         unparsed,
         Soldier {
             id,
-            nationality,
-            name,
-            race,
+            nationality: nationality.to_vec(),
+            name: name.to_vec(),
+            race: race.to_vec(),
             face_number,
-            nation,
+            nation: nation.to_vec(),
             stats,
             xp,
             age,
-            regiment,
-            experience,
-            carrier,
+            regiment: regiment.to_vec(),
+            experience: experience.to_vec(),
+            carrier: carrier.to_vec(),
             unknown_number,
             another_unknown_number,
             gender,
-            remaining_bytes,
+            remaining_bytes: remaining_bytes.to_vec(),
         },
     ))
 }

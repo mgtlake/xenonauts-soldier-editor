@@ -3,21 +3,20 @@ use nom::{bytes::complete::take_until, multi::many0, IResult};
 use crate::soldier::{self, Soldier, SOLDIER_START};
 
 #[derive(Debug)]
-pub struct Save<'a> {
-    pub before_soldiers: &'a [u8],
-    pub soldiers: Vec<Soldier<'a>>,
-    pub after_soldiers: &'a [u8],
+pub struct Save {
+    pub before_soldiers: Vec<u8>,
+    pub soldiers: Vec<Soldier>,
+    pub after_soldiers: Vec<u8>,
 }
 
-impl Save<'_> {
+impl Save {
     fn serialise(self) -> Vec<u8> {
         [
             self.before_soldiers,
-            &self
-                .soldiers
+            self.soldiers
                 .iter()
                 .flat_map(|soldier| soldier.serialise())
-                .collect::<Vec<u8>>(),
+                .collect(),
             self.after_soldiers,
         ]
         .concat()
@@ -30,9 +29,9 @@ pub fn parse_save(input: &[u8]) -> IResult<&[u8], Save> {
     IResult::Ok((
         unparsed,
         Save {
-            before_soldiers,
+            before_soldiers: before_soldiers.to_vec(),
             soldiers,
-            after_soldiers,
+            after_soldiers: after_soldiers.to_vec(),
         },
     ))
 }
