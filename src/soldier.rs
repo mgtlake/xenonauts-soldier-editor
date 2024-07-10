@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use hex_literal::hex;
 use nom::{
     bytes::complete::{tag, take, take_until},
