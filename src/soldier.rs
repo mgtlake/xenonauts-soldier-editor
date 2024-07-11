@@ -15,21 +15,21 @@ const SOLDIER_END: &[u8] = hex!("4D 41 52 4B 08 00 00 00 53 6F 6C 64 69 65 72 32
 
 #[derive(Debug)]
 pub struct Soldier {
-    id: u32,
-    nationality: Vec<u8>,
-    name: Vec<u8>,
-    race: Vec<u8>,
-    face_number: u32,
-    nation: Vec<u8>,
-    stats: SoldierStats,
-    xp: u32,
-    age: u16,
-    regiment: Vec<u8>,
-    experience: Vec<u8>,
-    carrier: Vec<u8>,
+    pub id: u32,
+    pub nationality: Vec<u8>,
+    pub name: Vec<u8>,
+    pub race: Vec<u8>,
+    pub face_number: u32,
+    pub nation: Vec<u8>,
+    pub stats: SoldierStats,
+    pub xp: u32,
+    pub age: u16,
+    pub regiment: Vec<u8>,
+    pub experience: Vec<u8>,
+    pub carrier: Vec<u8>,
     unknown_number: u32,
     another_unknown_number: u32,
-    gender: u8,
+    pub gender: u8,
     remaining_bytes: Vec<u8>,
 }
 
@@ -140,18 +140,18 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
 
 #[derive(Debug, Clone)]
 pub struct SoldierStats {
-    time_units_current: u32,
-    health_current: u32,
-    strength_current: u32,
-    accuracy_current: u32,
-    reflexes_current: u32,
-    bravery_current: u32,
-    time_units_original: u32,
-    health_original: u32,
-    strength_original: u32,
-    accuracy_original: u32,
-    reflexes_original: u32,
-    bravery_original: u32,
+    pub time_units_current: u32,
+    pub health_current: u32,
+    pub strength_current: u32,
+    pub accuracy_current: u32,
+    pub reflexes_current: u32,
+    pub bravery_current: u32,
+    pub time_units_original: u32,
+    pub health_original: u32,
+    pub strength_original: u32,
+    pub accuracy_original: u32,
+    pub reflexes_original: u32,
+    pub bravery_original: u32,
 }
 
 impl SoldierStats {
