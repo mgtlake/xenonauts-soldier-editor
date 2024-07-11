@@ -1,6 +1,7 @@
 use hex_literal::hex;
 use nom::{
     bytes::complete::{tag, take, take_until},
+    combinator::map_res,
     multi::length_data,
     number::complete::{le_u16, le_u32, le_u8},
     sequence::{delimited, tuple},
@@ -13,11 +14,30 @@ pub const SOLDIER_START: &[u8] = hex!("4D 41 52 4B 07 00 00 00 53 6F 6C 64 69 65
 // M A R K 8 NULL NULL NULL S o l d i e r 2
 const SOLDIER_END: &[u8] = hex!("4D 41 52 4B 08 00 00 00 53 6F 6C 64 69 65 72 32").as_slice();
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Gender {
+    Female = 0,
+    Male = 1,
+}
+
+impl std::fmt::Display for Gender {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Gender::Female => "Female",
+                Gender::Male => "Male",
+            }
+        )
+    }
+}
+
 #[derive(Debug)]
 pub struct Soldier {
     pub id: u32,
-    pub nationality: Vec<u8>,
-    pub name: Vec<u8>,
+    pub nationality: String,
+    pub name: String,
     pub race: Vec<u8>,
     pub face_number: u32,
     pub nation: Vec<u8>,
@@ -29,7 +49,7 @@ pub struct Soldier {
     pub carrier: Vec<u8>,
     unknown_number: u32,
     another_unknown_number: u32,
-    pub gender: u8,
+    pub gender: Gender,
     remaining_bytes: Vec<u8>,
 }
 
@@ -39,9 +59,9 @@ impl Soldier {
             SOLDIER_START,
             &self.id.to_le_bytes(),
             &(self.nationality.len() as u32).to_le_bytes(),
-            &self.nationality,
+            &self.nationality.clone().into_bytes(),
             &(self.name.len() as u32).to_le_bytes(),
-            &self.name,
+            &self.name.clone().into_bytes(),
             &(self.race.len() as u32).to_le_bytes(),
             &self.race,
             &self.face_number.to_le_bytes(),
@@ -60,7 +80,7 @@ impl Soldier {
             &self.carrier,
             &self.unknown_number.to_le_bytes(),
             &self.another_unknown_number.to_le_bytes(),
-            &self.gender.to_le_bytes(),
+            &[self.gender as u8],
             &self.remaining_bytes,
             SOLDIER_END,
         ]
@@ -69,6 +89,13 @@ impl Soldier {
 }
 
 pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
+    let parse_string = |x: &[u8]| String::from_utf8(x.to_vec());
+    let parse_gender = |x: u8| match x {
+        0 => Ok(Gender::Female),
+        1 => Ok(Gender::Male),
+        _ => Err(())
+    };
+
     let (
         unparsed,
         (
@@ -95,8 +122,8 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
         tag(SOLDIER_START),
         tuple((
             le_u32,
-            length_data(le_u32),
-            length_data(le_u32),
+            map_res(length_data(le_u32), parse_string),
+            map_res(length_data(le_u32), parse_string),
             length_data(le_u32),
             le_u32,
             length_data(le_u32),
@@ -110,7 +137,7 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
             length_data(le_u32),
             le_u32,
             le_u32,
-            le_u8,
+            map_res(le_u8, parse_gender),
             take_until(SOLDIER_END),
         )),
         tag(SOLDIER_END),
@@ -119,8 +146,8 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
         unparsed,
         Soldier {
             id,
-            nationality: nationality.to_vec(),
-            name: name.to_vec(),
+            nationality,
+            name,
             race: race.to_vec(),
             face_number,
             nation: nation.to_vec(),
@@ -174,6 +201,7 @@ impl SoldierStats {
     }
 }
 
+// fn parse_soldier_stats(input: &[u8]) -> IResult<&[u8], SoldierStats, VerboseError<&[u8]>> {
 fn parse_soldier_stats(input: &[u8]) -> IResult<&[u8], SoldierStats> {
     let (
         unparsed,
@@ -267,8 +295,8 @@ mod tests {
 
         let (_, soldier) = parse_soldier(&file).unwrap();
         assert_eq!(soldier.id, 23);
-        assert_eq!(soldier.nationality, b"Japanese");
-        assert_eq!(soldier.name, b"Ruri Yasuda");
+        assert_eq!(soldier.nationality, "Japanese");
+        assert_eq!(soldier.name, "Ruri Yasuda");
         assert_eq!(soldier.race, b"asi");
         assert_eq!(soldier.face_number, 3);
         assert_eq!(soldier.nation, b"japan");
@@ -276,7 +304,7 @@ mod tests {
         assert_eq!(soldier.regiment, b"regiment.japan1");
         assert_eq!(soldier.experience, b"experience.none");
         assert_eq!(soldier.carrier, b"Charlie - 1/13");
-        assert_eq!(soldier.gender, 0);
+        assert_eq!(soldier.gender, Gender::Female);
 
         assert_eq!(soldier.stats.time_units_current, 54);
         assert_eq!(soldier.stats.health_current, 55);

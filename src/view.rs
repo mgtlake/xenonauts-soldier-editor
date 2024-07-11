@@ -5,22 +5,18 @@ use std::path::PathBuf;
 use std::result::Result::{Err, Ok};
 
 use iced::theme::Button;
-use iced::widget::text_editor::Edit;
-use iced::widget::{button, column, horizontal_space, keyed_column, row, text, text_input};
-use iced::{Alignment, Element, Length, Padding, Sandbox, Settings, Theme};
+use iced::widget::{
+    button, column, horizontal_space, keyed_column, row, text, text_input, pick_list
+};
+use iced::{Alignment, Element, Length, Sandbox, Settings};
 use rfd::{FileDialog, MessageDialog, MessageLevel};
 
 use crate::save::{self, Save};
-use crate::soldier::{self, Soldier, SoldierStats};
+use crate::soldier::{Soldier, SoldierStats, Gender};
 
 pub fn run() -> iced::Result {
     Editor::run(Settings::default())
 }
-
-// struct SaveFile {
-//     path: PathBuf,
-//     save: Save,
-// }
 
 enum Editor {
     NoData,
@@ -36,6 +32,7 @@ enum Message {
     OpenFile,
     SaveFile,
     SelectSoldier { id: usize },
+    GenderSelected(Gender),
 }
 
 impl Sandbox for Editor {
@@ -99,8 +96,8 @@ impl Sandbox for Editor {
                 {
                     *selected_soldier_id = id;
                 }
-                // *self = Editor::Save { path: self.path, save, selected_soldier_id: id }
             }
+            _ => {},
         }
     }
 
@@ -150,18 +147,16 @@ fn view_soldier_list(save: &Save, selected_soldier_id: usize) -> Element<Message
     keyed_column(save.soldiers.iter().map(|soldier| {
         (
             soldier.id,
-            button(text(
-                String::from_utf8(soldier.name.clone()).unwrap_or("Malformed name".to_owned()),
-            ))
-            .on_press(Message::SelectSoldier {
-                id: soldier.id as usize,
-            })
-            .style(if soldier.id as usize == selected_soldier_id {
-                Button::Primary
-            } else {
-                Button::Text
-            })
-            .into(),
+            button(text(soldier.name.as_str()))
+                .on_press(Message::SelectSoldier {
+                    id: soldier.id as usize,
+                })
+                .style(if soldier.id as usize == selected_soldier_id {
+                    Button::Primary
+                } else {
+                    Button::Text
+                })
+                .into(),
         )
     }))
     .spacing(5)
@@ -172,13 +167,33 @@ fn view_soldier_list(save: &Save, selected_soldier_id: usize) -> Element<Message
 
 fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
     column![
-        row![column![row![
-            text("Name"),
-            text_input(
-                "Soldier name",
-                &String::from_utf8(soldier.name.clone()).unwrap_or("Malformed name".to_owned())
-            )
-        ],]],
+        row![column![
+            row![
+                text("Name").size(20),
+                horizontal_space().width(Length::Fixed(10.0)),
+                text_input("Soldier name", soldier.name.as_str()),
+            ],
+            row![
+                text("Age").size(20),
+                horizontal_space().width(Length::Fixed(10.0)),
+                text_input("Soldier age", &soldier.age.to_string()),
+                horizontal_space().width(Length::Fixed(20.0)),
+                text("Gender").size(20),
+                horizontal_space().width(Length::Fixed(10.0)),
+                pick_list(
+                    [Gender::Male, Gender::Female],
+                    Some(soldier.gender),
+                    Message::GenderSelected
+                ),
+            ],
+            row![
+                text("Nationality").size(20),
+                horizontal_space().width(Length::Fixed(10.0)),
+                text_input("Soldier nationality", soldier.nationality.as_str()),
+            ],
+        ]
+        .spacing(10)
+        .padding(10)],
         view_soldier_stats_editor(&soldier.stats),
     ]
     .into()
