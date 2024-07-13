@@ -142,11 +142,17 @@ impl Sandbox for Editor {
                         }
                         soldier.stats.time_units_current = val;
                     }
+                    Message::UpdateTimeUnitsBase(val) => {
+                        soldier.stats.time_units_original = val;
+                    }
                     Message::UpdateHealth(val) => {
                         if val < soldier.stats.health_original {
                             return;
                         }
                         soldier.stats.health_current = val;
+                    }
+                    Message::UpdateHealthBase(val) => {
+                        soldier.stats.health_original = val;
                     }
                     Message::UpdateStrength(val) => {
                         if val < soldier.stats.strength_original {
@@ -154,11 +160,17 @@ impl Sandbox for Editor {
                         }
                         soldier.stats.strength_current = val;
                     }
+                    Message::UpdateStrengthBase(val) => {
+                        soldier.stats.strength_original = val;
+                    }
                     Message::UpdateAccuracy(val) => {
                         if val < soldier.stats.accuracy_original {
                             return;
                         }
                         soldier.stats.accuracy_current = val;
+                    }
+                    Message::UpdateAccuracyBase(val) => {
+                        soldier.stats.accuracy_original = val;
                     }
                     Message::UpdateReflexes(val) => {
                         if val < soldier.stats.reflexes_original {
@@ -166,11 +178,17 @@ impl Sandbox for Editor {
                         }
                         soldier.stats.reflexes_current = val;
                     }
+                    Message::UpdateReflexesBase(val) => {
+                        soldier.stats.reflexes_original = val;
+                    }
                     Message::UpdateBravery(val) => {
                         if val < soldier.stats.bravery_original {
                             return;
                         }
                         soldier.stats.bravery_current = val;
+                    }
+                    Message::UpdateBraveryBase(val) => {
+                        soldier.stats.bravery_original = val;
                     }
                     _ => {}
                 }
@@ -367,7 +385,7 @@ fn view_soldier_stats_editor_row(
         horizontal_space().width(Length::Fixed(20.0)),
         text("Base value").size(20),
         horizontal_space().width(Length::Fixed(10.0)),
-        text_input("Stat base value", &base.to_string()),
+        number_input(base, current, update_base).min(0),
     ]
     .into()
 }
