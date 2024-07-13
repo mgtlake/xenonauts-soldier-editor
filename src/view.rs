@@ -10,8 +10,8 @@ use iced::theme::palette::Background;
 use iced::theme::Button;
 use iced::widget::container::StyleSheet;
 use iced::widget::{
-    button, column, container, horizontal_space, image, keyed_column, pick_list, row, scrollable,
-    slider, text, text_input,
+    button, column, combo_box, container, horizontal_space, image, keyed_column, pick_list, row,
+    scrollable, slider, text, text_input, ComboBox,
 };
 use iced::{Alignment, Color, Element, Length, Sandbox, Settings, Theme};
 use iced_aw::{drop_down, number_input, DropDown, BOOTSTRAP_FONT};
@@ -40,6 +40,7 @@ enum Editor {
         xenonauts_install_path: Option<PathBuf>,
         assets: Option<Assets>,
         show_flag_drop_down: bool,
+        nationality_combo_box_state: combo_box::State<KeyedString>,
     },
 }
 
@@ -50,6 +51,7 @@ enum Message {
     SelectSoldier { id: u32 },
     UpdateName(String),
     UpdateNationality(String),
+    UpdateNationalityFromAssets(KeyedString),
     UpdateRace(String),
     UpdateRegiment(String),
     UpdateRegimentFromAssets(KeyedString),
@@ -100,13 +102,23 @@ impl Sandbox for Editor {
                     Ok(save) => {
                         let selected_soldier_id =
                             save.soldiers.get(0).map(|soldier| soldier.id).unwrap_or(0);
+                        let assets = xenonauts_asset_path.map(|path| Assets::new(&path));
+                        let nationality_combo_box_state = match assets.clone() {
+                            Some(assets) => build_nationality_combo_box_state(
+                                &assets,
+                                &save,
+                                selected_soldier_id,
+                            ),
+                            None => combo_box::State::new(Vec::new()),
+                        };
                         Editor::Save {
                             path,
                             save,
                             selected_soldier_id,
                             xenonauts_install_path: None,
-                            assets: xenonauts_asset_path.map(|path| Assets::new(&path)),
+                            assets,
                             show_flag_drop_down: false,
+                            nationality_combo_box_state,
                         }
                     }
                     Err(e) => {
@@ -124,8 +136,10 @@ impl Sandbox for Editor {
         if let Editor::Save {
             path,
             save,
+            assets,
             selected_soldier_id,
             show_flag_drop_down,
+            nationality_combo_box_state,
             ..
         } = self
         {
@@ -140,6 +154,10 @@ impl Sandbox for Editor {
             }
             if let Message::SelectSoldier { id } = message {
                 *selected_soldier_id = id as u32;
+                if let Some(assets) = assets {
+                    *nationality_combo_box_state =
+                        build_nationality_combo_box_state(assets, save, id);
+                }
             }
 
             if let Some(soldier) = save.get_soldier_mut(*selected_soldier_id) {
@@ -149,6 +167,9 @@ impl Sandbox for Editor {
                     }
                     Message::UpdateNationality(nationality) => {
                         soldier.nationality = nationality;
+                    }
+                    Message::UpdateNationalityFromAssets(nationality) => {
+                        soldier.nationality = nationality.key;
                     }
                     Message::UpdateRace(race) => {
                         soldier.race = race.clone().into_bytes();
@@ -256,11 +277,17 @@ impl Sandbox for Editor {
                 selected_soldier_id,
                 assets,
                 show_flag_drop_down,
+                nationality_combo_box_state,
                 ..
             } => row![
                 view_soldier_list(save, *selected_soldier_id),
                 match save.get_soldier(*selected_soldier_id as u32) {
-                    Some(soldier) => view_soldier_editor(soldier, assets, *show_flag_drop_down),
+                    Some(soldier) => view_soldier_editor(
+                        soldier,
+                        assets,
+                        *show_flag_drop_down,
+                        nationality_combo_box_state
+                    ),
                     None => text("Select a soldier to edit")
                         .width(Length::Fill)
                         .height(Length::Fill)
@@ -334,6 +361,7 @@ fn view_soldier_editor<'a>(
     soldier: &'a Soldier,
     assets: &'a Option<Assets>,
     show_flag_drop_down: bool,
+    nationality_combo_box_state: &'a combo_box::State<KeyedString>,
 ) -> Element<'a, Message> {
     column![
         row![
@@ -341,7 +369,7 @@ fn view_soldier_editor<'a>(
                 row![
                     text("Name").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
-                    text_input("Soldier name", soldier.name.as_str()).on_input(Message::UpdateName),
+                    text_input("Soldier name", soldier.name.as_str()).on_input(Message::UpdateName)
                 ],
                 row![
                     text("Age").size(20),
@@ -365,8 +393,15 @@ fn view_soldier_editor<'a>(
                 row![
                     text("Nationality").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
-                    text_input("Soldier nationality", soldier.nationality.as_str())
-                        .on_input(Message::UpdateNationality),
+                    match assets {
+                        Some(assets) => view_soldier_nationality_combobox(
+                            assets.string_by_key(&soldier.nationality),
+                            &nationality_combo_box_state
+                        ),
+                        None => text_input("Soldier nationality", soldier.nationality.as_str())
+                            .on_input(Message::UpdateNationality)
+                            .into(),
+                    },
                     horizontal_space().width(Length::Fixed(20.0)),
                     text("Flag").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
@@ -419,22 +454,20 @@ fn view_soldier_editor<'a>(
                 ],
             ]
             .spacing(10),
-            column![
-                row![
-                    text("Race").size(20),
-                    horizontal_space().width(Length::Fixed(10.0)),
-                    text_input(
-                        "Soldier race",
-                        &String::from_utf8(soldier.race.clone()).unwrap()
-                    )
-                    .width(50)
-                    .on_input(Message::UpdateRace),
-                    horizontal_space().width(Length::Fixed(20.0)),
-                    text("Face").size(20),
-                    horizontal_space().width(Length::Fixed(10.0)),
-                    number_input(soldier.face_number, u32::MAX, Message::UpdateFaceNumber).min(0),
-                ],
-            ]
+            column![row![
+                text("Race").size(20),
+                horizontal_space().width(Length::Fixed(10.0)),
+                text_input(
+                    "Soldier race",
+                    &String::from_utf8(soldier.race.clone()).unwrap()
+                )
+                .width(50)
+                .on_input(Message::UpdateRace),
+                horizontal_space().width(Length::Fixed(20.0)),
+                text("Face").size(20),
+                horizontal_space().width(Length::Fixed(10.0)),
+                number_input(soldier.face_number, u32::MAX, Message::UpdateFaceNumber).min(0),
+            ],]
             .spacing(10)
         ]
         .spacing(20),
@@ -442,6 +475,19 @@ fn view_soldier_editor<'a>(
     ]
     .spacing(20)
     .padding(10)
+    .into()
+}
+
+fn view_soldier_nationality_combobox<'a>(
+    current: Option<&'a KeyedString>,
+    state: &'a combo_box::State<KeyedString>,
+) -> Element<'a, Message> {
+    combo_box(
+        &state,
+        "Soldier nationality",
+        current,
+        Message::UpdateNationalityFromAssets,
+    )
     .into()
 }
 
@@ -588,4 +634,23 @@ fn load_save(filepath: &PathBuf) -> Result<Save, Box<dyn Error>> {
     let file = fs::read(filepath)?;
     let (_, save) = save::parse_save(&file).map_err(|err| err.to_owned())?;
     Result::Ok(save)
+}
+
+fn build_nationality_combo_box_state(
+    assets: &Assets,
+    save: &Save,
+    selected_soldier_id: u32,
+) -> combo_box::State<KeyedString> {
+    let initial_search = save
+        .get_soldier(selected_soldier_id)
+        .and_then(|soldier| assets.string_by_key(&soldier.nationality));
+
+    combo_box::State::with_selection(
+        assets
+            .all_strings
+            .iter()
+            .map(|ks| ks.clone())
+            .collect::<Vec<KeyedString>>(),
+        initial_search,
+    )
 }

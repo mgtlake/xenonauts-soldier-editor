@@ -29,7 +29,11 @@ pub struct KeyedString {
 
 impl std::fmt::Display for KeyedString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ({})", self.string, self.key,)
+        if self.key == self.string {
+            write!(f, "{}", self.string,)
+        } else {
+            write!(f, "{} ({})", self.string, self.key,)
+        }
     }
 }
 
@@ -108,6 +112,10 @@ impl Assets {
             male_faces: Vec::new(),
             female_faces: Vec::new(),
         }
+    }
+
+    pub fn string_by_key(&self, s: &str) -> Option<&KeyedString> {
+        self.all_strings.iter().filter(|ks| ks.key == s).last()
     }
 }
 
