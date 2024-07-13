@@ -7,7 +7,7 @@ use std::result::Result::{Err, Ok};
 use iced::alignment::{Horizontal, Vertical};
 use iced::theme::Button;
 use iced::widget::{
-    button, column, horizontal_space, keyed_column, pick_list, row, text, text_input,
+    button, column, horizontal_space, keyed_column, pick_list, row, slider, text, text_input,
 };
 use iced::{Alignment, Element, Length, Sandbox, Settings};
 use rfd::{FileDialog, MessageDialog, MessageLevel};
@@ -24,7 +24,7 @@ enum Editor {
     Save {
         path: PathBuf,
         save: Save,
-        selected_soldier_id: usize,
+        selected_soldier_id: u32,
     },
 }
 
@@ -32,8 +32,25 @@ enum Editor {
 enum Message {
     OpenFile,
     SaveFile,
-    SelectSoldier { id: usize },
+    SelectSoldier { id: u32 },
     GenderSelected(Gender),
+    UpdateTimeUnits(u32),
+    UpdateTimeUnitsBase(u32),
+    UpdateHealth(u32),
+    UpdateHealthBase(u32),
+    UpdateStrength(u32),
+    UpdateStrengthBase(u32),
+    UpdateAccuracy(u32),
+    UpdateAccuracyBase(u32),
+    UpdateRelfexes(u32),
+    UpdateReflexBase(u32),
+    UpdateBraveryUnits(u32),
+    UpdateBraveryBase(u32),
+    // UpdateStat {
+    //     // update: Box<dyn Fn(&mut SoldierStats, u32)>,
+    //     update: F,
+    //     val: u32,
+    // },
 }
 
 impl Sandbox for Editor {
@@ -59,8 +76,7 @@ impl Sandbox for Editor {
                     *self = match save_or_error {
                         Ok(save) => {
                             let selected_soldier_id =
-                                save.soldiers.get(0).map(|soldier| soldier.id).unwrap_or(0)
-                                    as usize;
+                                save.soldiers.get(0).map(|soldier| soldier.id).unwrap_or(0);
                             Editor::Save {
                                 path,
                                 save,
@@ -95,9 +111,21 @@ impl Sandbox for Editor {
                     ..
                 } = self
                 {
-                    *selected_soldier_id = id;
+                    *selected_soldier_id = id as u32;
                 }
             }
+            // Message::UpdateStat { update, val } => {
+            //     if let Editor::Save {
+            //         selected_soldier_id,
+            //         save,
+            //         ..
+            //     } = self
+            //     {
+            //         if let Some(soldier) = save.get_soldier_mut(*selected_soldier_id) {
+            //             update(&mut soldier.stats, val);
+            //         }
+            //     }
+            // }
             _ => {}
         }
     }
@@ -112,12 +140,7 @@ impl Sandbox for Editor {
                 ..
             } => row![
                 view_soldier_list(save, *selected_soldier_id),
-                match save
-                    .soldiers
-                    .iter()
-                    .filter(|soldier| soldier.id == *selected_soldier_id as u32)
-                    .last()
-                {
+                match save.get_soldier(*selected_soldier_id as u32) {
                     Some(soldier) => view_soldier_editor(soldier),
                     None => text("Select a soldier to edit")
                         .width(Length::Fill)
@@ -162,15 +185,13 @@ fn view_file_controls(editor: &Editor) -> Element<Message> {
     .into()
 }
 
-fn view_soldier_list(save: &Save, selected_soldier_id: usize) -> Element<Message> {
+fn view_soldier_list(save: &Save, selected_soldier_id: u32) -> Element<Message> {
     keyed_column(save.soldiers.iter().map(|soldier| {
         (
             soldier.id,
             button(text(soldier.name.as_str()))
-                .on_press(Message::SelectSoldier {
-                    id: soldier.id as usize,
-                })
-                .style(if soldier.id as usize == selected_soldier_id {
+                .on_press(Message::SelectSoldier { id: soldier.id })
+                .style(if soldier.id == selected_soldier_id {
                     Button::Primary
                 } else {
                     Button::Text
@@ -204,6 +225,10 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
                     Some(soldier.gender),
                     Message::GenderSelected
                 ),
+                horizontal_space().width(Length::Fixed(20.0)),
+                text("XP").size(20),
+                horizontal_space().width(Length::Fixed(10.0)),
+                text_input("Soldier xp", &soldier.xp.to_string()),
             ],
             row![
                 text("Nationality").size(20),
@@ -219,7 +244,51 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
 }
 
 fn view_soldier_stats_editor(stats: &SoldierStats) -> Element<Message> {
-    column(Vec::new()).into()
+    // let rows = [(
+    //     "Time units",
+    //     stats.time_units_current,
+    //     |stats: &mut SoldierStats, val: u32| stats.time_units_current = val,
+    //     stats.time_units_original,
+    //     |stats: &mut SoldierStats, val: u32| stats.time_units_current = val,
+    // )];
+    let rows = [(
+        "Time units",
+        stats.time_units_current,
+        Message::UpdateTimeUnits,
+        stats.time_units_original,
+        Message::UpdateTimeUnitsBase,
+    )];
+
+    column(
+        // TODO checks bounds in game
+        rows.into_iter()
+            .map(
+                |(stat_name, current, update_current, original, update_original)| {
+                    row![
+                        text(stat_name).size(20),
+                        horizontal_space().width(Length::Fixed(10.0)),
+                        text(current).size(20),
+                        horizontal_space().width(Length::Fixed(10.0)),
+                        slider(1..=100, current, update_current),
+                        // slider(1..=100, *current, |val: u32| {
+                        //     Message::UpdateStat {
+                        //         // update: |stats, val| stats.time_units_current = val,
+                        //         // update: Box::new(update_current),
+                        //         update: update_current,
+                        //         val,
+                        //     }
+                        // }),
+                        horizontal_space().width(Length::Fixed(20.0)),
+                        text("Base value").size(20),
+                        horizontal_space().width(Length::Fixed(10.0)),
+                        text_input("Stat base value", &original.to_string()),
+                    ]
+                    .into()
+                },
+            )
+            .collect::<Vec<_>>(),
+    )
+    .into()
 }
 
 fn load_save(filepath: &PathBuf) -> Result<Save, Box<dyn Error>> {

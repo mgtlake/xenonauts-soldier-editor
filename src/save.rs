@@ -21,6 +21,20 @@ impl Save {
         ]
         .concat()
     }
+
+    pub fn get_soldier(&self, id: u32) -> Option<&Soldier> {
+        self.soldiers
+            .iter()
+            .filter(|soldier| soldier.id == id as u32)
+            .last()
+    }
+
+    pub fn get_soldier_mut(&mut self, id: u32) -> Option<&mut Soldier> {
+        self.soldiers
+            .iter_mut()
+            .filter(|soldier| soldier.id == id as u32)
+            .last()
+    }
 }
 
 pub fn parse_save(input: &[u8]) -> IResult<&[u8], Save> {
