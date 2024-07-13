@@ -2,7 +2,7 @@ use calamine::{open_workbook, Reader, Xlsx};
 use roxmltree::Node;
 use std::{collections::HashSet, error::Error, fs, path::PathBuf};
 
-use rust_search::SearchBuilder;
+use rust_search::{FilterExt, SearchBuilder};
 
 pub fn find_xenonauts_assets_folder() -> Option<PathBuf> {
     let paths_to_check: Vec<PathBuf> = [
@@ -33,14 +33,20 @@ impl std::fmt::Display for KeyedString {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub struct KeyedPath {
+    pub key: String,
+    pub path: PathBuf,
+}
+
 #[derive(Clone, Debug)]
 pub struct Assets {
     pub all_strings: Vec<KeyedString>,
     pub regiment_names: Vec<KeyedString>,
     pub experience_names: Vec<KeyedString>,
-    pub flags: Vec<String>,
-    pub male_faces: Vec<String>,
-    pub female_faces: Vec<String>,
+    pub flags: Vec<KeyedPath>,
+    pub male_faces: Vec<KeyedPath>,
+    pub female_faces: Vec<KeyedPath>,
 }
 
 impl Assets {
@@ -68,11 +74,37 @@ impl Assets {
             .filter(|ks| ks.key.starts_with("experience."))
             .collect();
 
+        let flag_dirs = SearchBuilder::default()
+            .location(assset_folder)
+            .search_input("flags")
+            .custom_filter(|dir| dir.metadata().unwrap().is_dir())
+            .build()
+            .collect::<Vec<String>>();
+        let flags = flag_dirs
+            .iter()
+            .filter_map(|dir| fs::read_dir(dir).ok())
+            .flatten()
+            .filter_map(|r| {
+                r.map(|f| KeyedPath {
+                    key: f
+                        .file_name()
+                        .to_string_lossy()
+                        .into_owned()
+                        .split(".")
+                        .next()
+                        .unwrap()
+                        .to_string(),
+                    path: f.path(),
+                })
+                .ok()
+            })
+            .collect::<Vec<_>>();
+
         Assets {
             all_strings,
             regiment_names,
             experience_names,
-            flags: Vec::new(),
+            flags,
             male_faces: Vec::new(),
             female_faces: Vec::new(),
         }

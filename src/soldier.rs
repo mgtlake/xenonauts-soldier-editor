@@ -40,7 +40,7 @@ pub struct Soldier {
     pub name: String,
     pub race: Vec<u8>,
     pub face_number: u32,
-    pub nation: Vec<u8>,
+    pub nation: String,
     pub stats: SoldierStats,
     pub xp: u32,
     pub age: f32,
@@ -66,7 +66,7 @@ impl Soldier {
             &self.race,
             &self.face_number.to_le_bytes(),
             &(self.nation.len() as u32).to_le_bytes(),
-            &self.nation,
+            &self.nation.clone().into_bytes(),
             &self.stats.serialise(),
             &self.xp.to_le_bytes(),
             &[b'\0'; 36], // TODO replace with parsed data
@@ -126,7 +126,7 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
             map_res(length_data(le_u32), parse_string),
             length_data(le_u32),
             le_u32,
-            length_data(le_u32),
+            map_res(length_data(le_u32), parse_string),
             parse_soldier_stats,
             le_u32,
             take(36 as u32),
@@ -150,7 +150,7 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
             name,
             race: race.to_vec(),
             face_number,
-            nation: nation.to_vec(),
+            nation,
             stats,
             xp,
             age,
@@ -299,7 +299,7 @@ mod tests {
         assert_eq!(soldier.name, "Ruri Yasuda");
         assert_eq!(soldier.race, b"asi");
         assert_eq!(soldier.face_number, 3);
-        assert_eq!(soldier.nation, b"japan");
+        assert_eq!(soldier.nation, "japan");
         assert_eq!(soldier.xp, 9);
         assert_eq!(soldier.regiment, b"regiment.japan1");
         assert_eq!(soldier.experience, b"experience.none");

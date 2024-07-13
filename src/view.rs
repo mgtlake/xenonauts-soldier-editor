@@ -6,18 +6,20 @@ use std::result::Result::{Err, Ok};
 use std::time::Instant;
 
 use iced::alignment::{Horizontal, Vertical};
+use iced::theme::palette::Background;
 use iced::theme::Button;
+use iced::widget::container::StyleSheet;
 use iced::widget::{
-    button, column, horizontal_space, keyed_column, pick_list, row, scrollable, slider, text,
-    text_input,
+    button, column, container, horizontal_space, image, keyed_column, pick_list, row, scrollable,
+    slider, text, text_input,
 };
-use iced::{Alignment, Element, Length, Sandbox, Settings};
-use iced_aw::{number_input, BOOTSTRAP_FONT};
+use iced::{Alignment, Color, Element, Length, Sandbox, Settings, Theme};
+use iced_aw::{drop_down, number_input, DropDown, BOOTSTRAP_FONT};
 use rayon::prelude::*;
 use rfd::{FileDialog, MessageDialog, MessageLevel};
 use rust_search::{FilterExt, SearchBuilder};
 
-use crate::assets::{self, Assets, KeyedString};
+use crate::assets::{self, Assets, KeyedPath, KeyedString};
 use crate::save::{self, Save};
 use crate::soldier::{Gender, Soldier, SoldierStats};
 
@@ -37,6 +39,7 @@ enum Editor {
         selected_soldier_id: u32,
         xenonauts_install_path: Option<PathBuf>,
         assets: Option<Assets>,
+        show_flag_drop_down: bool,
     },
 }
 
@@ -69,6 +72,8 @@ enum Message {
     UpdateBravery(u32),
     UpdateBraveryBase(u32),
     UpdateFaceNumber(u32),
+    ToggleFlagDropDown,
+    DismissDropDowns,
 }
 
 impl Sandbox for Editor {
@@ -101,6 +106,7 @@ impl Sandbox for Editor {
                             selected_soldier_id,
                             xenonauts_install_path: None,
                             assets: xenonauts_asset_path.map(|path| Assets::new(&path)),
+                            show_flag_drop_down: false,
                         }
                     }
                     Err(e) => {
@@ -119,6 +125,7 @@ impl Sandbox for Editor {
             path,
             save,
             selected_soldier_id,
+            show_flag_drop_down,
             ..
         } = self
         {
@@ -159,7 +166,8 @@ impl Sandbox for Editor {
                         soldier.experience = experience.key.clone().into_bytes();
                     }
                     Message::UpdateFlag(flag) => {
-                        soldier.nation = flag.clone().into_bytes();
+                        *show_flag_drop_down = false;
+                        soldier.nation = flag.clone();
                     }
                     Message::GenderSelected(gender) => {
                         soldier.gender = gender;
@@ -227,6 +235,12 @@ impl Sandbox for Editor {
                     Message::UpdateFaceNumber(val) => {
                         soldier.face_number = val;
                     }
+                    Message::DismissDropDowns => {
+                        *show_flag_drop_down = false;
+                    }
+                    Message::ToggleFlagDropDown => {
+                        *show_flag_drop_down = !*show_flag_drop_down;
+                    }
                     _ => {}
                 }
             }
@@ -241,11 +255,12 @@ impl Sandbox for Editor {
                 save,
                 selected_soldier_id,
                 assets,
+                show_flag_drop_down,
                 ..
             } => row![
                 view_soldier_list(save, *selected_soldier_id),
                 match save.get_soldier(*selected_soldier_id as u32) {
-                    Some(soldier) => view_soldier_editor(soldier, assets),
+                    Some(soldier) => view_soldier_editor(soldier, assets, *show_flag_drop_down),
                     None => text("Select a soldier to edit")
                         .width(Length::Fill)
                         .height(Length::Fill)
@@ -318,6 +333,7 @@ fn view_soldier_list(save: &Save, selected_soldier_id: u32) -> Element<Message> 
 fn view_soldier_editor<'a>(
     soldier: &'a Soldier,
     assets: &'a Option<Assets>,
+    show_flag_drop_down: bool,
 ) -> Element<'a, Message> {
     column![
         row![
@@ -354,28 +370,16 @@ fn view_soldier_editor<'a>(
                     horizontal_space().width(Length::Fixed(20.0)),
                     text("Flag").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
-                    text_input(
-                        "Soldier flag",
-                        &String::from_utf8(soldier.nation.clone()).unwrap()
-                    )
-                    .on_input(Message::UpdateFlag),
-                ],
-            ]
-            .spacing(10),
-            column![
-                row![
-                    text("Race").size(20),
-                    horizontal_space().width(Length::Fixed(10.0)),
-                    text_input(
-                        "Soldier race",
-                        &String::from_utf8(soldier.race.clone()).unwrap()
-                    )
-                    .width(50)
-                    .on_input(Message::UpdateRace),
-                    horizontal_space().width(Length::Fixed(20.0)),
-                    text("Face").size(20),
-                    horizontal_space().width(Length::Fixed(10.0)),
-                    number_input(soldier.face_number, u32::MAX, Message::UpdateFaceNumber).min(0),
+                    match assets {
+                        Some(assets) => view_soldier_flag_dropdown(
+                            &soldier.nation,
+                            &assets.flags,
+                            show_flag_drop_down
+                        ),
+                        None => text_input("Soldier flag", soldier.nation.as_str())
+                            .on_input(Message::UpdateFlag)
+                            .into(),
+                    },
                 ],
                 row![
                     text("Regiment").size(20),
@@ -402,16 +406,33 @@ fn view_soldier_editor<'a>(
                         Some(assets) => view_soldier_asset_picklist(
                             &soldier.experience,
                             &assets.experience_names,
-                            Message::UpdateRegimentFromAssets
+                            Message::UpdateExperienceFromAssets
                         ),
                         None => text_input(
                             "Soldier experience",
                             &String::from_utf8(soldier.experience.clone()).unwrap()
                         )
                         .width(150)
-                        .on_input(Message::UpdateRegiment)
+                        .on_input(Message::UpdateExperience)
                         .into(),
                     },
+                ],
+            ]
+            .spacing(10),
+            column![
+                row![
+                    text("Race").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    text_input(
+                        "Soldier race",
+                        &String::from_utf8(soldier.race.clone()).unwrap()
+                    )
+                    .width(50)
+                    .on_input(Message::UpdateRace),
+                    horizontal_space().width(Length::Fixed(20.0)),
+                    text("Face").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    number_input(soldier.face_number, u32::MAX, Message::UpdateFaceNumber).min(0),
                 ],
             ]
             .spacing(10)
@@ -438,6 +459,52 @@ fn view_soldier_asset_picklist<'a>(
         on_selected,
     )
     .into()
+}
+
+fn view_soldier_flag_dropdown<'a>(
+    current: &String,
+    options: &'a Vec<KeyedPath>,
+    show_flag_drop_down: bool,
+) -> Element<'a, Message> {
+    let underlay = button(
+        row![
+            match options.iter().filter(|kp| kp.key == *current).last() {
+                Some(kp) => image(&kp.path).into(),
+                None => icon('\u{F3CB}'),
+            },
+            text(current),
+            horizontal_space().width(Length::Fill),
+            match show_flag_drop_down {
+                false => text("▼"),
+                true => text("▲"),
+            },
+        ]
+        .align_items(Alignment::Center)
+        .spacing(5),
+    )
+    .style(Button::Secondary)
+    .width(Length::Fixed(175.0))
+    .on_press(Message::ToggleFlagDropDown);
+
+    let overlay = container(scrollable(column(options.iter().map(|kp| {
+        button(row![image(&kp.path), text(kp.key.clone())].spacing(5))
+            .on_press(Message::UpdateFlag(kp.key.clone()))
+            .style(Button::Secondary)
+            .width(Length::Fixed(175.0))
+            .into()
+    }))))
+    .padding(1)
+    .style(|theme: &Theme| {
+        container::Appearance::default()
+            .with_background(theme.palette().background)
+            .with_border(Color::BLACK, 1)
+    });
+
+    DropDown::new(underlay, overlay, show_flag_drop_down)
+        .width(Length::Fill)
+        .on_dismiss(Message::DismissDropDowns)
+        .alignment(drop_down::Alignment::Bottom)
+        .into()
 }
 
 fn view_soldier_stats_editor(stats: &SoldierStats) -> Element<Message> {
