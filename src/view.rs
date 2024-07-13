@@ -3,6 +3,7 @@ use std::fs;
 use std::option::Option::{None, Some};
 use std::path::PathBuf;
 use std::result::Result::{Err, Ok};
+use std::u16::MAX;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::theme::Button;
@@ -10,13 +11,18 @@ use iced::widget::{
     button, column, horizontal_space, keyed_column, pick_list, row, slider, text, text_input,
 };
 use iced::{Alignment, Element, Length, Sandbox, Settings};
+use iced_aw::number_input;
 use rfd::{FileDialog, MessageDialog, MessageLevel};
 
 use crate::save::{self, Save};
 use crate::soldier::{Gender, Soldier, SoldierStats};
 
 pub fn run() -> iced::Result {
-    Editor::run(Settings::default())
+    let mut settings: Settings<()> = Settings::default();
+    settings.fonts.push(std::borrow::Cow::Owned(
+        iced_aw::BOOTSTRAP_FONT_BYTES.to_vec(),
+    ));
+    Editor::run(settings)
 }
 
 enum Editor {
@@ -34,8 +40,10 @@ enum Message {
     SaveFile,
     SelectSoldier { id: u32 },
     UpdateName(String),
-    GenderSelected(Gender),
     UpdateNationality(String),
+    GenderSelected(Gender),
+    UpdateAge(u16),
+    UpdateXP(u32),
     UpdateTimeUnits(u32),
     UpdateTimeUnitsBase(u32),
     UpdateHealth(u32),
@@ -115,11 +123,17 @@ impl Sandbox for Editor {
                     Message::UpdateName(name) => {
                         soldier.name = name;
                     }
+                    Message::UpdateNationality(nationality) => {
+                        soldier.nationality = nationality;
+                    }
                     Message::GenderSelected(gender) => {
                         soldier.gender = gender;
                     }
-                    Message::UpdateNationality(nationality) => {
-                        soldier.nationality = nationality;
+                    Message::UpdateAge(val) => {
+                        soldier.age = val;
+                    }
+                    Message::UpdateXP(val) => {
+                        soldier.xp = val;
                     }
                     Message::UpdateTimeUnits(val) => {
                         if val < soldier.stats.time_units_original {
@@ -249,7 +263,7 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
             row![
                 text("Age").size(20),
                 horizontal_space().width(Length::Fixed(10.0)),
-                text_input("Soldier age", &soldier.age.to_string()),
+                number_input(soldier.age, u16::MAX, Message::UpdateAge).min(0),
                 horizontal_space().width(Length::Fixed(20.0)),
                 text("Gender").size(20),
                 horizontal_space().width(Length::Fixed(10.0)),
@@ -261,7 +275,7 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
                 horizontal_space().width(Length::Fixed(20.0)),
                 text("XP").size(20),
                 horizontal_space().width(Length::Fixed(10.0)),
-                text_input("Soldier xp", &soldier.xp.to_string()),
+                number_input(soldier.xp, u32::MAX, Message::UpdateXP).min(0),
             ],
             row![
                 text("Nationality").size(20),
