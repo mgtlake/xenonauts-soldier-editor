@@ -3,7 +3,7 @@ use nom::{
     bytes::complete::{tag, take, take_until},
     combinator::map_res,
     multi::length_data,
-    number::complete::{le_u16, le_u32, le_u8},
+    number::complete::{float, le_f32, le_u16, le_u32, le_u8},
     sequence::{delimited, tuple},
     IResult,
 };
@@ -43,7 +43,7 @@ pub struct Soldier {
     pub nation: Vec<u8>,
     pub stats: SoldierStats,
     pub xp: u32,
-    pub age: u16,
+    pub age: f32,
     pub regiment: Vec<u8>,
     pub experience: Vec<u8>,
     pub carrier: Vec<u8>,
@@ -69,7 +69,7 @@ impl Soldier {
             &self.nation,
             &self.stats.serialise(),
             &self.xp.to_le_bytes(),
-            &[b'\0'; 38], // TODO replace with parsed data
+            &[b'\0'; 36], // TODO replace with parsed data
             &self.age.to_le_bytes(),
             &(self.regiment.len() as u32).to_le_bytes(),
             &self.regiment,
@@ -129,8 +129,8 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
             length_data(le_u32),
             parse_soldier_stats,
             le_u32,
-            take(38 as u32),
-            le_u16, // TODO find correct format - this is right length
+            take(36 as u32),
+            le_f32,
             length_data(le_u32),
             length_data(le_u32),
             take(4 as u32),

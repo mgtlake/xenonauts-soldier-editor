@@ -46,7 +46,7 @@ enum Message {
     UpdateRegiment(String),
     UpdateExperience(String),
     GenderSelected(Gender),
-    UpdateAge(u16),
+    UpdateAge(f32),
     UpdateXP(u32),
     UpdateTimeUnits(u32),
     UpdateTimeUnitsBase(u32),
@@ -203,6 +203,9 @@ impl Sandbox for Editor {
                     Message::UpdateBraveryBase(val) => {
                         soldier.stats.bravery_original = val;
                     }
+                    Message::UpdateFaceNumber(val) => {
+                        soldier.face_number = val;
+                    }
                     _ => {}
                 }
             }
@@ -302,7 +305,7 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
                 row![
                     text("Age").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
-                    number_input(soldier.age, u16::MAX, Message::UpdateAge).min(0),
+                    number_input(soldier.age, f32::MAX, Message::UpdateAge).min(0.0).step(1.0),
                     horizontal_space().width(Length::Fixed(20.0)),
                     text("Gender").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
