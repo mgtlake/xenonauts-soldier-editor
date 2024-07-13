@@ -46,11 +46,6 @@ enum Message {
     UpdateReflexBase(u32),
     UpdateBraveryUnits(u32),
     UpdateBraveryBase(u32),
-    // UpdateStat {
-    //     // update: Box<dyn Fn(&mut SoldierStats, u32)>,
-    //     update: F,
-    //     val: u32,
-    // },
 }
 
 impl Sandbox for Editor {
@@ -114,18 +109,33 @@ impl Sandbox for Editor {
                     *selected_soldier_id = id as u32;
                 }
             }
-            // Message::UpdateStat { update, val } => {
-            //     if let Editor::Save {
-            //         selected_soldier_id,
-            //         save,
-            //         ..
-            //     } = self
-            //     {
-            //         if let Some(soldier) = save.get_soldier_mut(*selected_soldier_id) {
-            //             update(&mut soldier.stats, val);
-            //         }
-            //     }
-            // }
+            Message::GenderSelected(gender) => {
+                if let Editor::Save {
+                    selected_soldier_id,
+                    save,
+                    ..
+                } = self
+                {
+                    if let Some(soldier) = save.get_soldier_mut(*selected_soldier_id) {
+                        soldier.gender = gender;
+                    }
+                }
+            }
+            Message::UpdateTimeUnits(val) => {
+                if let Editor::Save {
+                    selected_soldier_id,
+                    save,
+                    ..
+                } = self
+                {
+                    if let Some(soldier) = save.get_soldier_mut(*selected_soldier_id) {
+                        if val < soldier.stats.time_units_original {
+                            return;
+                        }
+                        soldier.stats.time_units_current = val;
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -244,13 +254,6 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
 }
 
 fn view_soldier_stats_editor(stats: &SoldierStats) -> Element<Message> {
-    // let rows = [(
-    //     "Time units",
-    //     stats.time_units_current,
-    //     |stats: &mut SoldierStats, val: u32| stats.time_units_current = val,
-    //     stats.time_units_original,
-    //     |stats: &mut SoldierStats, val: u32| stats.time_units_current = val,
-    // )];
     let rows = [(
         "Time units",
         stats.time_units_current,
@@ -267,17 +270,12 @@ fn view_soldier_stats_editor(stats: &SoldierStats) -> Element<Message> {
                     row![
                         text(stat_name).size(20),
                         horizontal_space().width(Length::Fixed(10.0)),
-                        text(current).size(20),
+                        text(current)
+                            .size(20)
+                            .width(Length::Fixed(30.0))
+                            .horizontal_alignment(Horizontal::Center),
                         horizontal_space().width(Length::Fixed(10.0)),
                         slider(1..=100, current, update_current),
-                        // slider(1..=100, *current, |val: u32| {
-                        //     Message::UpdateStat {
-                        //         // update: |stats, val| stats.time_units_current = val,
-                        //         // update: Box::new(update_current),
-                        //         update: update_current,
-                        //         val,
-                        //     }
-                        // }),
                         horizontal_space().width(Length::Fixed(20.0)),
                         text("Base value").size(20),
                         horizontal_space().width(Length::Fixed(10.0)),
