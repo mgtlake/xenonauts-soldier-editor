@@ -8,7 +8,8 @@ use std::u16::MAX;
 use iced::alignment::{Horizontal, Vertical};
 use iced::theme::Button;
 use iced::widget::{
-    button, column, horizontal_space, keyed_column, pick_list, row, slider, text, text_input,
+    button, column, horizontal_space, keyed_column, pick_list, row, scrollable, slider, text,
+    text_input,
 };
 use iced::{Alignment, Element, Length, Sandbox, Settings};
 use iced_aw::{number_input, BOOTSTRAP_FONT};
@@ -214,17 +215,21 @@ impl Sandbox for Editor {
 
 fn view_file_controls(editor: &Editor) -> Element<Message> {
     row![
-        button(row![icon('\u{F3D8}'), "Open"].spacing(5)).padding(10).on_press(Message::OpenFile),
+        button(row![icon('\u{F3D8}'), "Open"].spacing(5))
+            .padding(10)
+            .on_press(Message::OpenFile),
         text(match editor {
             Editor::Save { path, .. } => path.as_os_str().to_str().unwrap_or(""),
             Editor::NoData => "",
         })
         .size(20),
         horizontal_space().width(Length::Fill),
-        button(row![icon('\u{F7D8}'), "Save"].spacing(5)).padding(10).on_press_maybe(match editor {
-            Editor::Save { .. } => Some(Message::SaveFile),
-            Editor::NoData => None,
-        })
+        button(row![icon('\u{F7D8}'), "Save"].spacing(5))
+            .padding(10)
+            .on_press_maybe(match editor {
+                Editor::Save { .. } => Some(Message::SaveFile),
+                Editor::NoData => None,
+            })
     ]
     .spacing(20)
     .padding(10)
@@ -233,22 +238,24 @@ fn view_file_controls(editor: &Editor) -> Element<Message> {
 }
 
 fn view_soldier_list(save: &Save, selected_soldier_id: u32) -> Element<Message> {
-    keyed_column(save.soldiers.iter().map(|soldier| {
-        (
-            soldier.id,
-            button(text(soldier.name.as_str()))
-                .on_press(Message::SelectSoldier { id: soldier.id })
-                .style(if soldier.id == selected_soldier_id {
-                    Button::Primary
-                } else {
-                    Button::Text
-                })
-                .into(),
-        )
-    }))
-    .spacing(5)
-    .padding(20)
-    .align_items(Alignment::End)
+    scrollable(
+        keyed_column(save.soldiers.iter().map(|soldier| {
+            (
+                soldier.id,
+                button(text(soldier.name.as_str()))
+                    .on_press(Message::SelectSoldier { id: soldier.id })
+                    .style(if soldier.id == selected_soldier_id {
+                        Button::Primary
+                    } else {
+                        Button::Text
+                    })
+                    .into(),
+            )
+        }))
+        .spacing(5)
+        .padding(20)
+        .align_items(Alignment::End),
+    )
     .into()
 }
 
@@ -368,7 +375,6 @@ fn view_soldier_stats_editor_row(
 fn icon<'a, Message>(codepoint: char) -> Element<'a, Message> {
     text(codepoint).font(BOOTSTRAP_FONT).into()
 }
-
 
 fn load_save(filepath: &PathBuf) -> Result<Save, Box<dyn Error>> {
     let file = fs::read(filepath)?;
