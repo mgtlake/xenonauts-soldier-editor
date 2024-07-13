@@ -28,12 +28,14 @@ enum Editor {
     },
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum Message {
     OpenFile,
     SaveFile,
     SelectSoldier { id: u32 },
+    UpdateName(String),
     GenderSelected(Gender),
+    UpdateNationality(String),
     UpdateTimeUnits(u32),
     UpdateTimeUnitsBase(u32),
     UpdateHealth(u32),
@@ -110,8 +112,14 @@ impl Sandbox for Editor {
 
             if let Some(soldier) = save.get_soldier_mut(*selected_soldier_id) {
                 match message {
+                    Message::UpdateName(name) => {
+                        soldier.name = name;
+                    }
                     Message::GenderSelected(gender) => {
                         soldier.gender = gender;
+                    }
+                    Message::UpdateNationality(nationality) => {
+                        soldier.nationality = nationality;
                     }
                     Message::UpdateTimeUnits(val) => {
                         if val < soldier.stats.time_units_original {
@@ -236,7 +244,7 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
             row![
                 text("Name").size(20),
                 horizontal_space().width(Length::Fixed(10.0)),
-                text_input("Soldier name", soldier.name.as_str()),
+                text_input("Soldier name", soldier.name.as_str()).on_input(Message::UpdateName),
             ],
             row![
                 text("Age").size(20),
@@ -258,7 +266,8 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
             row![
                 text("Nationality").size(20),
                 horizontal_space().width(Length::Fixed(10.0)),
-                text_input("Soldier nationality", soldier.nationality.as_str()),
+                text_input("Soldier nationality", soldier.nationality.as_str())
+                    .on_input(Message::UpdateNationality),
             ],
         ]
         .spacing(10)],
