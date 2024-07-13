@@ -42,6 +42,9 @@ enum Message {
     SelectSoldier { id: u32 },
     UpdateName(String),
     UpdateNationality(String),
+    UpdateRace(String),
+    UpdateRegiment(String),
+    UpdateExperience(String),
     GenderSelected(Gender),
     UpdateAge(u16),
     UpdateXP(u32),
@@ -57,6 +60,7 @@ enum Message {
     UpdateReflexesBase(u32),
     UpdateBravery(u32),
     UpdateBraveryBase(u32),
+    UpdateFaceNumber(u32),
 }
 
 impl Sandbox for Editor {
@@ -126,6 +130,15 @@ impl Sandbox for Editor {
                     }
                     Message::UpdateNationality(nationality) => {
                         soldier.nationality = nationality;
+                    }
+                    Message::UpdateRace(race) => {
+                        soldier.race = race.clone().into_bytes();
+                    }
+                    Message::UpdateRegiment(regiment) => {
+                        soldier.regiment = regiment.clone().into_bytes();
+                    }
+                    Message::UpdateExperience(experience) => {
+                        soldier.experience = experience.clone().into_bytes();
                     }
                     Message::GenderSelected(gender) => {
                         soldier.gender = gender;
@@ -279,37 +292,75 @@ fn view_soldier_list(save: &Save, selected_soldier_id: u32) -> Element<Message> 
 
 fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
     column![
-        row![column![
-            row![
-                text("Name").size(20),
-                horizontal_space().width(Length::Fixed(10.0)),
-                text_input("Soldier name", soldier.name.as_str()).on_input(Message::UpdateName),
-            ],
-            row![
-                text("Age").size(20),
-                horizontal_space().width(Length::Fixed(10.0)),
-                number_input(soldier.age, u16::MAX, Message::UpdateAge).min(0),
-                horizontal_space().width(Length::Fixed(20.0)),
-                text("Gender").size(20),
-                horizontal_space().width(Length::Fixed(10.0)),
-                pick_list(
-                    [Gender::Male, Gender::Female],
-                    Some(soldier.gender),
-                    Message::GenderSelected
-                ),
-                horizontal_space().width(Length::Fixed(20.0)),
-                text("XP").size(20),
-                horizontal_space().width(Length::Fixed(10.0)),
-                number_input(soldier.xp, u32::MAX, Message::UpdateXP).min(0),
-            ],
-            row![
-                text("Nationality").size(20),
-                horizontal_space().width(Length::Fixed(10.0)),
-                text_input("Soldier nationality", soldier.nationality.as_str())
-                    .on_input(Message::UpdateNationality),
-            ],
-        ]
-        .spacing(10)],
+        row![
+            column![
+                row![
+                    text("Name").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    text_input("Soldier name", soldier.name.as_str()).on_input(Message::UpdateName),
+                ],
+                row![
+                    text("Age").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    number_input(soldier.age, u16::MAX, Message::UpdateAge).min(0),
+                    horizontal_space().width(Length::Fixed(20.0)),
+                    text("Gender").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    pick_list(
+                        [Gender::Male, Gender::Female],
+                        Some(soldier.gender),
+                        Message::GenderSelected
+                    ),
+                    horizontal_space().width(Length::Fixed(20.0)),
+                    text("XP").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    number_input(soldier.xp, u32::MAX, Message::UpdateXP).min(0),
+                ],
+                row![
+                    text("Nationality").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    text_input("Soldier nationality", soldier.nationality.as_str())
+                        .on_input(Message::UpdateNationality),
+                ],
+            ]
+            .spacing(10),
+            column![
+                row![
+                    text("Race").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    text_input(
+                        "Soldier race",
+                        &String::from_utf8(soldier.race.clone()).unwrap()
+                    )
+                    .width(50)
+                    .on_input(Message::UpdateRace),
+                    horizontal_space().width(Length::Fixed(20.0)),
+                    text("Face").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    number_input(soldier.face_number, u32::MAX, Message::UpdateFaceNumber).min(0),
+                ],
+                row![
+                    text("Regiment").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    text_input(
+                        "Soldier regiment",
+                        &String::from_utf8(soldier.regiment.clone()).unwrap()
+                    )
+                    .width(150)
+                    .on_input(Message::UpdateRegiment),
+                ],
+                row![
+                    text("Experience").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    text_input(
+                        "Soldier experience",
+                        &String::from_utf8(soldier.experience.clone()).unwrap()
+                    )
+                    .width(150)
+                    .on_input(Message::UpdateExperience),
+                ],
+            ].spacing(10)
+        ].spacing(20),
         view_soldier_stats_editor(&soldier.stats),
     ]
     .spacing(20)
