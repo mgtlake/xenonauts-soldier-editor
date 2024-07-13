@@ -4,15 +4,16 @@ use std::option::Option::{None, Some};
 use std::path::PathBuf;
 use std::result::Result::{Err, Ok};
 
+use iced::alignment::{Horizontal, Vertical};
 use iced::theme::Button;
 use iced::widget::{
-    button, column, horizontal_space, keyed_column, row, text, text_input, pick_list
+    button, column, horizontal_space, keyed_column, pick_list, row, text, text_input,
 };
 use iced::{Alignment, Element, Length, Sandbox, Settings};
 use rfd::{FileDialog, MessageDialog, MessageLevel};
 
 use crate::save::{self, Save};
-use crate::soldier::{Soldier, SoldierStats, Gender};
+use crate::soldier::{Gender, Soldier, SoldierStats};
 
 pub fn run() -> iced::Result {
     Editor::run(Settings::default())
@@ -97,7 +98,7 @@ impl Sandbox for Editor {
                     *selected_soldier_id = id;
                 }
             }
-            _ => {},
+            _ => {}
         }
     }
 
@@ -111,11 +112,29 @@ impl Sandbox for Editor {
                 ..
             } => row![
                 view_soldier_list(save, *selected_soldier_id),
-                view_soldier_editor(save.soldiers.get(*selected_soldier_id).unwrap())
+                match save
+                    .soldiers
+                    .iter()
+                    .filter(|soldier| soldier.id == *selected_soldier_id as u32)
+                    .last()
+                {
+                    Some(soldier) => view_soldier_editor(soldier),
+                    None => text("Select a soldier to edit")
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .vertical_alignment(Vertical::Center)
+                        .horizontal_alignment(Horizontal::Center)
+                        .size(30)
+                        .into(),
+                }
             ]
             .into(),
-            Editor::NoData => column![text("No soldier selected").size(30)]
-                .align_items(Alignment::Center)
+            Editor::NoData => text("Open a Xenonauts save file")
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .vertical_alignment(Vertical::Center)
+                .horizontal_alignment(Horizontal::Center)
+                .size(30)
                 .into(),
         };
 

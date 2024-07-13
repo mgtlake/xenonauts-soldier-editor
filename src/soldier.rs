@@ -93,7 +93,7 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
     let parse_gender = |x: u8| match x {
         0 => Ok(Gender::Female),
         1 => Ok(Gender::Male),
-        _ => Err(())
+        _ => Err(()),
     };
 
     let (
