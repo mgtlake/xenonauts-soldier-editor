@@ -45,6 +45,7 @@ enum Message {
     UpdateRace(String),
     UpdateRegiment(String),
     UpdateExperience(String),
+    UpdateFlag(String),
     GenderSelected(Gender),
     UpdateAge(f32),
     UpdateXP(u32),
@@ -139,6 +140,9 @@ impl Sandbox for Editor {
                     }
                     Message::UpdateExperience(experience) => {
                         soldier.experience = experience.clone().into_bytes();
+                    }
+                    Message::UpdateFlag(flag) => {
+                        soldier.nation = flag.clone().into_bytes();
                     }
                     Message::GenderSelected(gender) => {
                         soldier.gender = gender;
@@ -324,6 +328,11 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
                     horizontal_space().width(Length::Fixed(10.0)),
                     text_input("Soldier nationality", soldier.nationality.as_str())
                         .on_input(Message::UpdateNationality),
+                    horizontal_space().width(Length::Fixed(20.0)),
+                    text("Flag").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    text_input("Soldier flag", &String::from_utf8(soldier.nation.clone()).unwrap())
+                        .on_input(Message::UpdateFlag),
                 ],
             ]
             .spacing(10),
