@@ -102,7 +102,7 @@ impl Sandbox for Editor {
                     Ok(save) => {
                         let selected_soldier_id =
                             save.soldiers.get(0).map(|soldier| soldier.id).unwrap_or(0);
-                        let assets = xenonauts_asset_path.map(|path| Assets::new(&path));
+                        let assets = xenonauts_asset_path.map(|path| Assets::new(path));
                         let nationality_combo_box_state = match assets.clone() {
                             Some(assets) => build_nationality_combo_box_state(
                                 &assets,
@@ -454,20 +454,26 @@ fn view_soldier_editor<'a>(
                 ],
             ]
             .spacing(10),
-            column![row![
-                text("Race").size(20),
-                horizontal_space().width(Length::Fixed(10.0)),
-                text_input(
-                    "Soldier race",
-                    &String::from_utf8(soldier.race.clone()).unwrap()
-                )
-                .width(50)
-                .on_input(Message::UpdateRace),
-                horizontal_space().width(Length::Fixed(20.0)),
-                text("Face").size(20),
-                horizontal_space().width(Length::Fixed(10.0)),
-                number_input(soldier.face_number, u32::MAX, Message::UpdateFaceNumber).min(0),
-            ],]
+            column![
+                match assets {
+                    Some(assets) => view_soldier_face(soldier, assets),
+                    None => row![].into(),
+                },
+                row![
+                    text("Race").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    text_input(
+                        "Soldier race",
+                        &String::from_utf8(soldier.race.clone()).unwrap()
+                    )
+                    .width(50)
+                    .on_input(Message::UpdateRace),
+                    horizontal_space().width(Length::Fixed(20.0)),
+                    text("Face").size(20),
+                    horizontal_space().width(Length::Fixed(10.0)),
+                    number_input(soldier.face_number, u32::MAX, Message::UpdateFaceNumber).min(0),
+                ],
+            ]
             .spacing(10)
         ]
         .spacing(20),
@@ -476,6 +482,18 @@ fn view_soldier_editor<'a>(
     .spacing(20)
     .padding(10)
     .into()
+}
+
+fn view_soldier_face<'a>(soldier: &'a Soldier, assets: &'a Assets) -> Element<'a, Message> {
+    let facepath = assets.get_face(&soldier.race, soldier.face_number, soldier.gender);
+
+    let element: Element<Message> = match facepath {
+        Some(facepath) => image(facepath.path.clone())
+            .content_fit(iced::ContentFit::Fill)
+            .into(),
+        None => text("No portrait found!").size(20).into(),
+    };
+    row![element].align_items(Alignment::Center).into()
 }
 
 fn view_soldier_nationality_combobox<'a>(

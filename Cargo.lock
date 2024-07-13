@@ -4109,6 +4109,7 @@ dependencies = [
  "iced_aw",
  "nom",
  "rayon",
+ "regex",
  "rfd",
  "roxmltree 0.20.0",
  "rust_search",
