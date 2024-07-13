@@ -1,3 +1,4 @@
+mod assets;
 mod save;
 mod soldier;
 mod view;

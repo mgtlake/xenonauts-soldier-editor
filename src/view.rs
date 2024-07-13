@@ -17,6 +17,7 @@ use rayon::prelude::*;
 use rfd::{FileDialog, MessageDialog, MessageLevel};
 use rust_search::{FilterExt, SearchBuilder};
 
+use crate::assets::{self, Assets, KeyedString};
 use crate::save::{self, Save};
 use crate::soldier::{Gender, Soldier, SoldierStats};
 
@@ -35,8 +36,7 @@ enum Editor {
         save: Save,
         selected_soldier_id: u32,
         xenonauts_install_path: Option<PathBuf>,
-        regiments: Vec<String>,
-        experiences: Vec<String>,
+        assets: Option<Assets>,
     },
 }
 
@@ -49,7 +49,9 @@ enum Message {
     UpdateNationality(String),
     UpdateRace(String),
     UpdateRegiment(String),
+    UpdateRegimentFromAssets(KeyedString),
     UpdateExperience(String),
+    UpdateExperienceFromAssets(KeyedString),
     UpdateFlag(String),
     GenderSelected(Gender),
     UpdateAge(f32),
@@ -85,8 +87,7 @@ impl Sandbox for Editor {
             let path = FileDialog::new()
                 .add_filter("Save file", &["sav"])
                 .pick_file();
-            find_xenonauts_assets_folder();
-            find_xenonauts_assets_folder_rayon();
+            let xenonauts_asset_path = assets::find_xenonauts_assets_folder();
 
             if let Some(path) = path {
                 let save_or_error = load_save(&path);
@@ -99,8 +100,7 @@ impl Sandbox for Editor {
                             save,
                             selected_soldier_id,
                             xenonauts_install_path: None,
-                            regiments: Vec::new(),
-                            experiences: Vec::new(),
+                            assets: xenonauts_asset_path.map(|path| Assets::new(&path)),
                         }
                     }
                     Err(e) => {
@@ -149,8 +149,14 @@ impl Sandbox for Editor {
                     Message::UpdateRegiment(regiment) => {
                         soldier.regiment = regiment.clone().into_bytes();
                     }
+                    Message::UpdateRegimentFromAssets(regiment) => {
+                        soldier.regiment = regiment.key.clone().into_bytes();
+                    }
                     Message::UpdateExperience(experience) => {
                         soldier.experience = experience.clone().into_bytes();
+                    }
+                    Message::UpdateExperienceFromAssets(experience) => {
+                        soldier.experience = experience.key.clone().into_bytes();
                     }
                     Message::UpdateFlag(flag) => {
                         soldier.nation = flag.clone().into_bytes();
@@ -234,11 +240,12 @@ impl Sandbox for Editor {
             Editor::Save {
                 save,
                 selected_soldier_id,
+                assets,
                 ..
             } => row![
                 view_soldier_list(save, *selected_soldier_id),
                 match save.get_soldier(*selected_soldier_id as u32) {
-                    Some(soldier) => view_soldier_editor(soldier),
+                    Some(soldier) => view_soldier_editor(soldier, assets),
                     None => text("Select a soldier to edit")
                         .width(Length::Fill)
                         .height(Length::Fill)
@@ -308,7 +315,10 @@ fn view_soldier_list(save: &Save, selected_soldier_id: u32) -> Element<Message> 
     .into()
 }
 
-fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
+fn view_soldier_editor<'a>(
+    soldier: &'a Soldier,
+    assets: &'a Option<Assets>,
+) -> Element<'a, Message> {
     column![
         row![
             column![
@@ -320,7 +330,9 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
                 row![
                     text("Age").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
-                    number_input(soldier.age, f32::MAX, Message::UpdateAge).min(0.0).step(1.0),
+                    number_input(soldier.age, f32::MAX, Message::UpdateAge)
+                        .min(0.0)
+                        .step(1.0),
                     horizontal_space().width(Length::Fixed(20.0)),
                     text("Gender").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
@@ -342,8 +354,11 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
                     horizontal_space().width(Length::Fixed(20.0)),
                     text("Flag").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
-                    text_input("Soldier flag", &String::from_utf8(soldier.nation.clone()).unwrap())
-                        .on_input(Message::UpdateFlag),
+                    text_input(
+                        "Soldier flag",
+                        &String::from_utf8(soldier.nation.clone()).unwrap()
+                    )
+                    .on_input(Message::UpdateFlag),
                 ],
             ]
             .spacing(10),
@@ -365,29 +380,63 @@ fn view_soldier_editor(soldier: &Soldier) -> Element<Message> {
                 row![
                     text("Regiment").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
-                    text_input(
-                        "Soldier regiment",
-                        &String::from_utf8(soldier.regiment.clone()).unwrap()
-                    )
-                    .width(150)
-                    .on_input(Message::UpdateRegiment),
+                    match assets {
+                        Some(assets) => view_soldier_asset_picklist(
+                            &soldier.regiment,
+                            &assets.regiment_names,
+                            Message::UpdateRegimentFromAssets
+                        ),
+                        None => text_input(
+                            "Soldier regiment",
+                            &String::from_utf8(soldier.regiment.clone()).unwrap()
+                        )
+                        .width(150)
+                        .on_input(Message::UpdateRegiment)
+                        .into(),
+                    },
                 ],
                 row![
                     text("Experience").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
-                    text_input(
-                        "Soldier experience",
-                        &String::from_utf8(soldier.experience.clone()).unwrap()
-                    )
-                    .width(150)
-                    .on_input(Message::UpdateExperience),
+                    match assets {
+                        Some(assets) => view_soldier_asset_picklist(
+                            &soldier.experience,
+                            &assets.experience_names,
+                            Message::UpdateRegimentFromAssets
+                        ),
+                        None => text_input(
+                            "Soldier experience",
+                            &String::from_utf8(soldier.experience.clone()).unwrap()
+                        )
+                        .width(150)
+                        .on_input(Message::UpdateRegiment)
+                        .into(),
+                    },
                 ],
-            ].spacing(10)
-        ].spacing(20),
+            ]
+            .spacing(10)
+        ]
+        .spacing(20),
         view_soldier_stats_editor(&soldier.stats),
     ]
     .spacing(20)
     .padding(10)
+    .into()
+}
+
+fn view_soldier_asset_picklist<'a>(
+    current: &'a Vec<u8>,
+    options: &'a Vec<KeyedString>,
+    on_selected: impl Fn(KeyedString) -> Message + 'a,
+) -> Element<'a, Message> {
+    pick_list(
+        options.clone(),
+        options
+            .iter()
+            .filter(|ks| ks.key.as_bytes() == current)
+            .last(),
+        on_selected,
+    )
     .into()
 }
 
@@ -472,125 +521,4 @@ fn load_save(filepath: &PathBuf) -> Result<Save, Box<dyn Error>> {
     let file = fs::read(filepath)?;
     let (_, save) = save::parse_save(&file).map_err(|err| err.to_owned())?;
     Result::Ok(save)
-}
-
-fn find_xenonauts_assets_folder() -> Option<PathBuf> {
-    let now = Instant::now();
-
-    let paths_to_check: Vec<PathBuf> = [
-        "C:\\Program Files (x86)\\GOG Galaxy\\Games".into(),
-        "C:\\Program Files (x86)\\Steam".into(),
-        "C:\\Program Files (x86)".into(),
-        "C:\\Program Files".into(),
-        "~/GOG Games".into(),
-        "~/.steam".into(),
-        "~/.local/share/Steam".into(),
-        // "C:\\".into(),
-        // "/".into(),
-    ]
-    .to_vec();
-
-    // Steam install location
-
-    // GOG install location
-    for path in paths_to_check {
-        let search: Vec<String> = SearchBuilder::default()
-            .location(path)
-            .search_input("stringgs.xml")
-            .custom_filter(|dir: &rust_search::DirEntry| {
-                if dir.metadata().unwrap().is_file() {
-                    let test: PathBuf = "Xenonauts/assets".into();
-                    dir.path().parent().unwrap().ends_with(test)
-                } else {
-                    true
-                }
-            })
-            .limit(1)
-            .depth(10000)
-            .build()
-            .collect();
-
-        if search.len() == 0 {
-            // println!("Didn't find anything in {:?}", path.clone());
-            continue;
-        }
-
-        // for s in search {
-        //     let p: PathBuf = s.into();
-        //     println!("Found {:?} in {:?}", p, path.clone());
-        // }
-        break;
-    }
-
-    let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
-    None
-}
-
-fn find_xenonauts_assets_folder_rayon() -> Option<PathBuf> {
-    let now = Instant::now();
-
-    let paths_to_check: Vec<PathBuf> = [
-        "C:\\Program Files (x86)\\GOG Galaxy\\Games\\Xenonauts".into(),
-        // "C:\\Program Files (x86)\\Steam".into(),
-        // "C:\\Program Files (x86)".into(),
-        // "C:\\Program Files".into(),
-        // "~/GOG Games".into(),
-        // "~/.steam".into(),
-        // "~/.local/share/Steam".into(),
-    ]
-    .to_vec();
-
-    let test = paths_to_check.par_iter().map(|path| {
-        SearchBuilder::default()
-            .location(path)
-            .search_input("strings.xml")
-            // .custom_filter(|dir: &rust_search::DirEntry| {
-            //     if dir.metadata().unwrap().is_file() {
-            //         let test: PathBuf = "Xenonauts/assets".into();
-            //         dir.path().parent().unwrap().ends_with(test)
-            //     } else {
-            //         true
-            //     }
-            // })
-            .limit(1)
-            .depth(10000)
-            .build()
-            .collect::<Vec<String>>()
-    }).find_any(|results| results.len() > 0);
-
-    println!("{:?}", test);
-
-    // for path in paths_to_check {
-    //     let search: Vec<String> = SearchBuilder::default()
-    //         .location(path.clone())
-    //         .search_input("stringgs.xml")
-    //         .custom_filter(|dir: &rust_search::DirEntry| {
-    //             if dir.metadata().unwrap().is_file() {
-    //                 let test: PathBuf = "Xenonauts/assets".into();
-    //                 dir.path().parent().unwrap().ends_with(test)
-    //             } else {
-    //                 true
-    //             }
-    //         })
-    //         .limit(1)
-    //         .depth(10000)
-    //         .build()
-    //         .collect();
-
-    //     if search.len() == 0 {
-    //         println!("Didn't find anything in {:?}", path.clone());
-    //         continue;
-    //     }
-
-    //     for s in search {
-    //         let p: PathBuf = s.into();
-    //         println!("Found {:?} in {:?}", p, path.clone());
-    //     }
-    //     break;
-    // }
-
-    let elapsed = now.elapsed();
-    println!("RAYON Elapsed: {:.2?}", elapsed);
-    None
 }
