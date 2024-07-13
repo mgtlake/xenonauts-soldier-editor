@@ -1,9 +1,9 @@
 use std::error::Error;
 use std::fs;
 use std::option::Option::{None, Some};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::result::Result::{Err, Ok};
-use std::u16::MAX;
+use std::time::Instant;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::theme::Button;
@@ -13,7 +13,9 @@ use iced::widget::{
 };
 use iced::{Alignment, Element, Length, Sandbox, Settings};
 use iced_aw::{number_input, BOOTSTRAP_FONT};
+use rayon::prelude::*;
 use rfd::{FileDialog, MessageDialog, MessageLevel};
+use rust_search::{FilterExt, SearchBuilder};
 
 use crate::save::{self, Save};
 use crate::soldier::{Gender, Soldier, SoldierStats};
@@ -32,6 +34,9 @@ enum Editor {
         path: PathBuf,
         save: Save,
         selected_soldier_id: u32,
+        xenonauts_install_path: Option<PathBuf>,
+        regiments: Vec<String>,
+        experiences: Vec<String>,
     },
 }
 
@@ -80,6 +85,8 @@ impl Sandbox for Editor {
             let path = FileDialog::new()
                 .add_filter("Save file", &["sav"])
                 .pick_file();
+            find_xenonauts_assets_folder();
+            find_xenonauts_assets_folder_rayon();
 
             if let Some(path) = path {
                 let save_or_error = load_save(&path);
@@ -91,6 +98,9 @@ impl Sandbox for Editor {
                             path,
                             save,
                             selected_soldier_id,
+                            xenonauts_install_path: None,
+                            regiments: Vec::new(),
+                            experiences: Vec::new(),
                         }
                     }
                     Err(e) => {
@@ -109,6 +119,7 @@ impl Sandbox for Editor {
             path,
             save,
             selected_soldier_id,
+            ..
         } = self
         {
             if let Message::SaveFile = message {
@@ -461,4 +472,125 @@ fn load_save(filepath: &PathBuf) -> Result<Save, Box<dyn Error>> {
     let file = fs::read(filepath)?;
     let (_, save) = save::parse_save(&file).map_err(|err| err.to_owned())?;
     Result::Ok(save)
+}
+
+fn find_xenonauts_assets_folder() -> Option<PathBuf> {
+    let now = Instant::now();
+
+    let paths_to_check: Vec<PathBuf> = [
+        "C:\\Program Files (x86)\\GOG Galaxy\\Games".into(),
+        "C:\\Program Files (x86)\\Steam".into(),
+        "C:\\Program Files (x86)".into(),
+        "C:\\Program Files".into(),
+        "~/GOG Games".into(),
+        "~/.steam".into(),
+        "~/.local/share/Steam".into(),
+        // "C:\\".into(),
+        // "/".into(),
+    ]
+    .to_vec();
+
+    // Steam install location
+
+    // GOG install location
+    for path in paths_to_check {
+        let search: Vec<String> = SearchBuilder::default()
+            .location(path)
+            .search_input("stringgs.xml")
+            .custom_filter(|dir: &rust_search::DirEntry| {
+                if dir.metadata().unwrap().is_file() {
+                    let test: PathBuf = "Xenonauts/assets".into();
+                    dir.path().parent().unwrap().ends_with(test)
+                } else {
+                    true
+                }
+            })
+            .limit(1)
+            .depth(10000)
+            .build()
+            .collect();
+
+        if search.len() == 0 {
+            // println!("Didn't find anything in {:?}", path.clone());
+            continue;
+        }
+
+        // for s in search {
+        //     let p: PathBuf = s.into();
+        //     println!("Found {:?} in {:?}", p, path.clone());
+        // }
+        break;
+    }
+
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
+    None
+}
+
+fn find_xenonauts_assets_folder_rayon() -> Option<PathBuf> {
+    let now = Instant::now();
+
+    let paths_to_check: Vec<PathBuf> = [
+        "C:\\Program Files (x86)\\GOG Galaxy\\Games\\Xenonauts".into(),
+        // "C:\\Program Files (x86)\\Steam".into(),
+        // "C:\\Program Files (x86)".into(),
+        // "C:\\Program Files".into(),
+        // "~/GOG Games".into(),
+        // "~/.steam".into(),
+        // "~/.local/share/Steam".into(),
+    ]
+    .to_vec();
+
+    let test = paths_to_check.par_iter().map(|path| {
+        SearchBuilder::default()
+            .location(path)
+            .search_input("strings.xml")
+            // .custom_filter(|dir: &rust_search::DirEntry| {
+            //     if dir.metadata().unwrap().is_file() {
+            //         let test: PathBuf = "Xenonauts/assets".into();
+            //         dir.path().parent().unwrap().ends_with(test)
+            //     } else {
+            //         true
+            //     }
+            // })
+            .limit(1)
+            .depth(10000)
+            .build()
+            .collect::<Vec<String>>()
+    }).find_any(|results| results.len() > 0);
+
+    println!("{:?}", test);
+
+    // for path in paths_to_check {
+    //     let search: Vec<String> = SearchBuilder::default()
+    //         .location(path.clone())
+    //         .search_input("stringgs.xml")
+    //         .custom_filter(|dir: &rust_search::DirEntry| {
+    //             if dir.metadata().unwrap().is_file() {
+    //                 let test: PathBuf = "Xenonauts/assets".into();
+    //                 dir.path().parent().unwrap().ends_with(test)
+    //             } else {
+    //                 true
+    //             }
+    //         })
+    //         .limit(1)
+    //         .depth(10000)
+    //         .build()
+    //         .collect();
+
+    //     if search.len() == 0 {
+    //         println!("Didn't find anything in {:?}", path.clone());
+    //         continue;
+    //     }
+
+    //     for s in search {
+    //         let p: PathBuf = s.into();
+    //         println!("Found {:?} in {:?}", p, path.clone());
+    //     }
+    //     break;
+    // }
+
+    let elapsed = now.elapsed();
+    println!("RAYON Elapsed: {:.2?}", elapsed);
+    None
 }
