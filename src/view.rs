@@ -11,7 +11,7 @@ use iced::widget::{
     button, column, horizontal_space, keyed_column, pick_list, row, slider, text, text_input,
 };
 use iced::{Alignment, Element, Length, Sandbox, Settings};
-use iced_aw::number_input;
+use iced_aw::{number_input, BOOTSTRAP_FONT};
 use rfd::{FileDialog, MessageDialog, MessageLevel};
 
 use crate::save::{self, Save};
@@ -214,14 +214,14 @@ impl Sandbox for Editor {
 
 fn view_file_controls(editor: &Editor) -> Element<Message> {
     row![
-        button("Open ").padding(10).on_press(Message::OpenFile),
+        button(row![icon('\u{F3D8}'), "Open"].spacing(5)).padding(10).on_press(Message::OpenFile),
         text(match editor {
             Editor::Save { path, .. } => path.as_os_str().to_str().unwrap_or(""),
             Editor::NoData => "",
         })
         .size(20),
         horizontal_space().width(Length::Fill),
-        button("Save").padding(10).on_press_maybe(match editor {
+        button(row![icon('\u{F7D8}'), "Save"].spacing(5)).padding(10).on_press_maybe(match editor {
             Editor::Save { .. } => Some(Message::SaveFile),
             Editor::NoData => None,
         })
@@ -364,6 +364,11 @@ fn view_soldier_stats_editor_row(
     ]
     .into()
 }
+
+fn icon<'a, Message>(codepoint: char) -> Element<'a, Message> {
+    text(codepoint).font(BOOTSTRAP_FONT).into()
+}
+
 
 fn load_save(filepath: &PathBuf) -> Result<Save, Box<dyn Error>> {
     let file = fs::read(filepath)?;
