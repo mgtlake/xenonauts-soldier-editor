@@ -47,6 +47,8 @@ pub struct Soldier {
     pub regiment: Vec<u8>,
     pub experience: Vec<u8>,
     pub carrier: Vec<u8>,
+    unknown: Vec<u8>,
+    unknown_part_two: Vec<u8>,
     unknown_number: u32,
     another_unknown_number: u32,
     pub gender: Gender,
@@ -69,13 +71,13 @@ impl Soldier {
             &self.nation.clone().into_bytes(),
             &self.stats.serialise(),
             &self.xp.to_le_bytes(),
-            &[b'\0'; 36], // TODO replace with parsed data
+            &self.unknown,
             &self.age.to_le_bytes(),
             &(self.regiment.len() as u32).to_le_bytes(),
             &self.regiment,
             &(self.experience.len() as u32).to_le_bytes(),
             &self.experience,
-            &[b'\0'; 4], // TODO replace with parsed data
+            &self.unknown_part_two,
             &(self.carrier.len() as u32).to_le_bytes(),
             &self.carrier,
             &self.unknown_number.to_le_bytes(),
@@ -107,11 +109,11 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
             nation,
             stats,
             xp,
-            _unknown, // TODO figure this out
+            unknown, // TODO figure this out
             age,
             regiment,
             experience,
-            _unknown_part_two, // TODO figure this out
+            unknown_part_two, // TODO figure this out
             carrier,
             unknown_number,         // TODO figure this out
             another_unknown_number, // TODO figure this out
@@ -157,6 +159,8 @@ pub fn parse_soldier(input: &[u8]) -> IResult<&[u8], Soldier> {
             regiment: regiment.to_vec(),
             experience: experience.to_vec(),
             carrier: carrier.to_vec(),
+            unknown: unknown.to_vec(),
+            unknown_part_two: unknown_part_two.to_vec(),
             unknown_number,
             another_unknown_number,
             gender,
@@ -201,7 +205,6 @@ impl SoldierStats {
     }
 }
 
-// fn parse_soldier_stats(input: &[u8]) -> IResult<&[u8], SoldierStats, VerboseError<&[u8]>> {
 fn parse_soldier_stats(input: &[u8]) -> IResult<&[u8], SoldierStats> {
     let (
         unparsed,
