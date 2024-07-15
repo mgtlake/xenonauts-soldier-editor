@@ -1,5 +1,6 @@
 use std::{collections::HashSet, error::Error, fs, path::PathBuf};
 
+use itertools::Itertools;
 use regex::Regex;
 use roxmltree::Node;
 use rust_search::{FilterExt, SearchBuilder};
@@ -109,6 +110,7 @@ impl Assets {
                 })
                 .ok()
             })
+            .unique_by(|kp| kp.key.clone())
             .collect();
 
         let male_faces = fetch_faces(&asset_path, "soldierimages$");
@@ -144,15 +146,13 @@ impl Assets {
 fn parse_strings(path: &PathBuf) -> Result<Vec<KeyedString>, Box<dyn Error>> {
     let f = fs::read_to_string(path)?;
     let doc = roxmltree::Document::parse(&f)?;
-    let mut strings = doc
+    let strings = doc
         .descendants()
         .filter(|n| n.has_tag_name("Row"))
         .filter_map(|row| parse_string(row))
+        .sorted_by(|a, b| String::cmp(&a.key, &b.key))
+        .unique_by(|ks| ks.key.clone())
         .collect::<Vec<KeyedString>>();
-
-    strings.sort();
-    strings.dedup();
-
     Ok(strings)
 }
 
