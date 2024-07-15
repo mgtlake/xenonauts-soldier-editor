@@ -111,7 +111,7 @@ impl Assets {
             })
             .collect();
 
-        let male_faces = fetch_faces(&asset_path, "soldierimages");
+        let male_faces = fetch_faces(&asset_path, "soldierimages$");
         let female_faces = fetch_faces(&asset_path, "soldierimagesfemale");
 
         Assets {
