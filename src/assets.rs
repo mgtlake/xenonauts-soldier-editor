@@ -76,6 +76,8 @@ impl Assets {
             .iter()
             .filter_map(|path| parse_strings(&path.into()).ok())
             .flatten()
+            .sorted_by(|a, b| String::cmp(&a.key, &b.key))
+            .unique_by(|ks| ks.key.clone())
             .collect();
 
         let regiment_names = all_strings
@@ -150,8 +152,6 @@ fn parse_strings(path: &PathBuf) -> Result<Vec<KeyedString>, Box<dyn Error>> {
         .descendants()
         .filter(|n| n.has_tag_name("Row"))
         .filter_map(|row| parse_string(row))
-        .sorted_by(|a, b| String::cmp(&a.key, &b.key))
-        .unique_by(|ks| ks.key.clone())
         .collect::<Vec<KeyedString>>();
     Ok(strings)
 }
