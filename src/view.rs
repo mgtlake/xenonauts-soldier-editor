@@ -482,6 +482,7 @@ fn view_soldier_editor<'a>(
                     number_input(soldier.face_number, u32::MAX, Message::UpdateFaceNumber).min(0),
                 ],
             ]
+            .width(Length::Fixed(250.0))
             .spacing(10)
         ]
         .spacing(20),
@@ -495,13 +496,13 @@ fn view_soldier_editor<'a>(
 fn view_soldier_face<'a>(soldier: &'a Soldier, assets: &'a Assets) -> Element<'a, Message> {
     let facepath = assets.get_face(&soldier.race, soldier.face_number, soldier.gender);
 
-    let element: Element<Message> = match facepath {
+    match facepath {
         Some(facepath) => image(facepath.path.clone())
-            .content_fit(iced::ContentFit::Fill)
+            .content_fit(iced::ContentFit::None)
+            .width(Length::Fill)
             .into(),
         None => text("No portrait found!").size(20).into(),
-    };
-    row![element].align_items(Alignment::Center).into()
+    }
 }
 
 fn view_soldier_nationality_combobox<'a>(
