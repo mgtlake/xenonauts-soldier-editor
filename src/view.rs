@@ -557,6 +557,7 @@ fn view_soldier_flag_dropdown<'a>(
             .width(Length::Fixed(175.0))
             .into()
     }))))
+    .max_height(500.0)
     .padding(1)
     .style(|theme: &Theme| {
         container::Appearance::default()
