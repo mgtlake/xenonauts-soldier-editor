@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::result::Result::{Err, Ok};
 use std::time::Instant;
 
+use iced::advanced::graphics::core::font;
 use iced::alignment::{Horizontal, Vertical};
 use iced::theme::palette::Background;
 use iced::theme::Button;
@@ -13,7 +14,7 @@ use iced::widget::{
     button, column, combo_box, container, horizontal_space, image, keyed_column, pick_list, row,
     scrollable, slider, text, text_input, ComboBox,
 };
-use iced::{Alignment, Color, Element, Length, Sandbox, Settings, Theme};
+use iced::{Alignment, Color, Element, Font, Length, Sandbox, Settings, Theme};
 use iced_aw::{drop_down, number_input, DropDown, BOOTSTRAP_FONT};
 use rayon::prelude::*;
 use rfd::{FileDialog, MessageDialog, MessageLevel};
@@ -340,14 +341,21 @@ fn view_soldier_list(save: &Save, selected_soldier_id: u32) -> Element<Message> 
         keyed_column(save.soldiers.iter().map(|soldier| {
             (
                 soldier.id,
-                button(text(soldier.name.as_str()))
-                    .on_press(Message::SelectSoldier { id: soldier.id })
-                    .style(if soldier.id == selected_soldier_id {
-                        Button::Primary
+                button(text(soldier.name.as_str()).font(Font {
+                    weight: if soldier.carrier.len() > 0 {
+                        font::Weight::Bold
                     } else {
-                        Button::Text
-                    })
-                    .into(),
+                        font::Weight::Normal
+                    },
+                    ..Font::default()
+                }))
+                .on_press(Message::SelectSoldier { id: soldier.id })
+                .style(if soldier.id == selected_soldier_id {
+                    Button::Primary
+                } else {
+                    Button::Text
+                })
+                .into(),
             )
         }))
         .spacing(5)
