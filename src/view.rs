@@ -38,7 +38,6 @@ enum Editor {
         path: PathBuf,
         save: Save,
         selected_soldier_id: u32,
-        xenonauts_install_path: Option<PathBuf>,
         assets: Option<Assets>,
         show_flag_drop_down: bool,
         nationality_combo_box_state: combo_box::State<KeyedString>,
@@ -49,6 +48,8 @@ enum Editor {
 enum Message {
     OpenFile,
     SaveFile,
+    SelectAssetsFolder,
+    ClearAssets,
     SelectSoldier { id: u32 },
     UpdateName(String),
     UpdateNationality(String),
@@ -116,7 +117,6 @@ impl Sandbox for Editor {
                             path,
                             save,
                             selected_soldier_id,
-                            xenonauts_install_path: None,
                             assets,
                             show_flag_drop_down: false,
                             nationality_combo_box_state,
@@ -153,6 +153,18 @@ impl Sandbox for Editor {
                         .show();
                 }
             }
+
+            if let Message::SelectAssetsFolder = message {
+                let path = FileDialog::new().pick_folder();
+                if let Some(path) = path {
+                    *assets = Some(Assets::new(path));
+                }
+            }
+
+            if let Message::ClearAssets = message {
+                *assets = None;
+            }
+
             if let Message::SelectSoldier { id } = message {
                 *selected_soldier_id = id as u32;
                 if let Some(assets) = assets {
@@ -317,11 +329,18 @@ fn view_file_controls(editor: &Editor) -> Element<Message> {
         button(row![icon('\u{F3D8}'), "Open"].spacing(5))
             .padding(10)
             .on_press(Message::OpenFile),
-        text(match editor {
-            Editor::Save { path, .. } => path.as_os_str().to_str().unwrap_or(""),
-            Editor::NoData => "",
-        })
-        .size(20),
+        column![
+            text(match editor {
+                Editor::Save { path, .. } => path.as_os_str().to_str().unwrap_or(""),
+                Editor::NoData => "",
+            })
+            .size(20),
+            match editor {
+                Editor::Save { assets, .. } => view_asset_file_controls(&assets),
+                _ => row![].into(),
+            },
+        ]
+        .spacing(5),
         horizontal_space().width(Length::Fill),
         button(row![icon('\u{F7D8}'), "Save"].spacing(5))
             .padding(10)
@@ -334,6 +353,32 @@ fn view_file_controls(editor: &Editor) -> Element<Message> {
     .padding(10)
     .align_items(Alignment::Center)
     .into()
+}
+
+fn view_asset_file_controls(assets: &Option<Assets>) -> Element<Message> {
+    match assets {
+        Some(assets) => row![
+            text("Xenonauts folder: ").size(15.0),
+            text(assets.asset_path.as_os_str().to_str().unwrap_or("")).size(15.0),
+            horizontal_space().width(Length::Fixed(10.0)),
+            button(text("Change folder").size(12.0))
+                .on_press(Message::SelectAssetsFolder)
+                .style(Button::Secondary),
+                horizontal_space().width(Length::Fixed(10.0)),
+            button(text("Manual mode").size(12.0))
+                .on_press(Message::ClearAssets)
+                .style(Button::Secondary),
+        ]
+        .into(),
+        None => row![
+            text("Could not auto-detect Xenonauts assets folder").size(15.0),
+            horizontal_space().width(Length::Fixed(10.0)),
+            button(text("Select assets folder").size(12.0))
+                .on_press(Message::SelectAssetsFolder)
+                .style(Button::Secondary),
+        ]
+        .into(),
+    }
 }
 
 fn view_soldier_list(save: &Save, selected_soldier_id: u32) -> Element<Message> {
