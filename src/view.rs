@@ -14,13 +14,14 @@ use iced::widget::{
     button, column, combo_box, container, horizontal_space, image, keyed_column, pick_list, row,
     scrollable, slider, text, text_input, ComboBox,
 };
-use iced::{Alignment, Color, Element, Font, Length, Sandbox, Settings, Theme};
-use iced_aw::{drop_down, number_input, DropDown, BOOTSTRAP_FONT};
+use iced::{Alignment, Color, Element, Font, Length, Padding, Sandbox, Settings, Theme};
+use iced_aw::{drop_down, number_input, DropDown, Wrap, BOOTSTRAP_FONT};
+use itertools::Itertools;
 use rayon::prelude::*;
 use rfd::{FileDialog, MessageDialog, MessageLevel};
 use rust_search::{FilterExt, SearchBuilder};
 
-use crate::assets::{self, Assets, KeyedPath, KeyedString};
+use crate::assets::{self, Assets, FacePath, KeyedPath, KeyedString};
 use crate::save::{self, Save};
 use crate::soldier::{Gender, Soldier, SoldierStats};
 
@@ -41,6 +42,7 @@ enum Editor {
         assets: Option<Assets>,
         show_flag_drop_down: bool,
         nationality_combo_box_state: combo_box::State<KeyedString>,
+        show_face_picker: bool,
     },
 }
 
@@ -76,7 +78,9 @@ enum Message {
     UpdateBravery(u32),
     UpdateBraveryBase(u32),
     UpdateFaceNumber(u32),
+    UpdateFaceFromAssets(FacePath),
     ToggleFlagDropDown,
+    ToggleFacePicker,
     DismissDropDowns,
 }
 
@@ -120,6 +124,7 @@ impl Sandbox for Editor {
                             assets,
                             show_flag_drop_down: false,
                             nationality_combo_box_state,
+                            show_face_picker: false,
                         }
                     }
                     Err(e) => {
@@ -141,6 +146,7 @@ impl Sandbox for Editor {
             selected_soldier_id,
             show_flag_drop_down,
             nationality_combo_box_state,
+            show_face_picker,
             ..
         } = self
         {
@@ -167,6 +173,7 @@ impl Sandbox for Editor {
 
             if let Message::SelectSoldier { id } = message {
                 *selected_soldier_id = id as u32;
+                *show_face_picker = false;
                 if let Some(assets) = assets {
                     *nationality_combo_box_state =
                         build_nationality_combo_box_state(assets, save, id);
@@ -269,11 +276,19 @@ impl Sandbox for Editor {
                     Message::UpdateFaceNumber(val) => {
                         soldier.face_number = val;
                     }
+                    Message::UpdateFaceFromAssets(face_path) => {
+                        soldier.race = face_path.race.clone().into_bytes();
+                        soldier.face_number = face_path.id;
+                        *show_face_picker = false;
+                    }
                     Message::DismissDropDowns => {
                         *show_flag_drop_down = false;
                     }
                     Message::ToggleFlagDropDown => {
                         *show_flag_drop_down = !*show_flag_drop_down;
+                    }
+                    Message::ToggleFacePicker => {
+                        *show_face_picker = !*show_face_picker;
                     }
                     _ => {}
                 }
@@ -291,6 +306,7 @@ impl Sandbox for Editor {
                 assets,
                 show_flag_drop_down,
                 nationality_combo_box_state,
+                show_face_picker,
                 ..
             } => row![
                 view_soldier_list(save, *selected_soldier_id),
@@ -299,7 +315,8 @@ impl Sandbox for Editor {
                         soldier,
                         assets,
                         *show_flag_drop_down,
-                        nationality_combo_box_state
+                        nationality_combo_box_state,
+                        *show_face_picker
                     ),
                     None => text("Select a soldier to edit")
                         .width(Length::Fill)
@@ -364,7 +381,7 @@ fn view_asset_file_controls(assets: &Option<Assets>) -> Element<Message> {
             button(text("Change folder").size(12.0))
                 .on_press(Message::SelectAssetsFolder)
                 .style(Button::Secondary),
-                horizontal_space().width(Length::Fixed(10.0)),
+            horizontal_space().width(Length::Fixed(10.0)),
             button(text("Manual mode").size(12.0))
                 .on_press(Message::ClearAssets)
                 .style(Button::Secondary),
@@ -415,7 +432,14 @@ fn view_soldier_editor<'a>(
     assets: &'a Option<Assets>,
     show_flag_drop_down: bool,
     nationality_combo_box_state: &'a combo_box::State<KeyedString>,
+    show_face_picker: bool,
 ) -> Element<'a, Message> {
+    if show_face_picker {
+        if let Some(assets) = assets {
+            return view_soldier_face_picker(soldier, assets);
+        }
+    }
+
     column![
         row![
             column![
@@ -507,12 +531,9 @@ fn view_soldier_editor<'a>(
                 ],
             ]
             .spacing(10),
-            column![
-                match assets {
-                    Some(assets) => view_soldier_face(soldier, assets),
-                    None => row![].into(),
-                },
-                row![
+            column![match assets {
+                Some(assets) => view_soldier_face(soldier, assets),
+                None => row![
                     text("Race").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
                     text_input(
@@ -525,9 +546,10 @@ fn view_soldier_editor<'a>(
                     text("Face").size(20),
                     horizontal_space().width(Length::Fixed(10.0)),
                     number_input(soldier.face_number, u32::MAX, Message::UpdateFaceNumber).min(0),
-                ],
-            ]
-            .width(Length::Fixed(250.0))
+                ]
+                .into(),
+            },]
+            // .width(Length::Fixed(250.0))
             .spacing(10)
         ]
         .spacing(20),
@@ -541,13 +563,57 @@ fn view_soldier_editor<'a>(
 fn view_soldier_face<'a>(soldier: &'a Soldier, assets: &'a Assets) -> Element<'a, Message> {
     let facepath = assets.get_face(&soldier.race, soldier.face_number, soldier.gender);
 
-    match facepath {
+    let portrait: Element<_> = match facepath {
         Some(facepath) => image(facepath.path.clone())
             .content_fit(iced::ContentFit::None)
-            .width(Length::Fill)
             .into(),
         None => text("No portrait found!").size(20).into(),
+    };
+
+    button(
+        column![portrait, text("Select face")]
+            .spacing(10)
+            .align_items(Alignment::Center),
+    )
+    .on_press(Message::ToggleFacePicker)
+    .style(Button::Secondary)
+    .padding(Padding::from([10, 20]))
+    .into()
+}
+
+fn view_soldier_face_picker<'a>(soldier: &'a Soldier, assets: &'a Assets) -> Element<'a, Message> {
+    let face_paths: Vec<Element<_>> = match soldier.gender {
+        Gender::Male => &assets.male_faces,
+        Gender::Female => &assets.female_faces,
     }
+    .iter()
+    .filter(|fp| fp.race != "cust")
+    .sorted_by_key(|fp| fp.race.clone())
+    .map(|fp| {
+        button(image(fp.path.clone()))
+            .on_press(Message::UpdateFaceFromAssets(fp.clone()))
+            .style(Button::Secondary)
+            .into()
+    })
+    .collect();
+
+    column![
+        row![
+            text("Select face").size(30),
+            horizontal_space().width(Length::Fill),
+            button(row![icon('\u{F623}'), text("Back")].spacing(5))
+                .padding(10)
+                .on_press(Message::ToggleFacePicker)
+        ]
+        .padding(Padding::from([0, 10])),
+        scrollable(row![
+            horizontal_space().width(Length::Fixed(10.0)),
+            Wrap::with_elements(face_paths),
+            horizontal_space().width(Length::Fill)
+        ]),
+    ]
+    .spacing(5)
+    .into()
 }
 
 fn view_soldier_nationality_combobox<'a>(
@@ -701,6 +767,10 @@ fn view_soldier_stats_editor_row(
 
 fn icon<'a, Message>(codepoint: char) -> Element<'a, Message> {
     text(codepoint).font(BOOTSTRAP_FONT).into()
+}
+
+fn icon_with_size<'a, Message>(codepoint: char, size: u16) -> Element<'a, Message> {
+    text(codepoint).font(BOOTSTRAP_FONT).size(size).into()
 }
 
 fn load_save(filepath: &PathBuf) -> Result<Save, Box<dyn Error>> {
