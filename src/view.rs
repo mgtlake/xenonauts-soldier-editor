@@ -11,8 +11,8 @@ use iced::theme::palette::Background;
 use iced::theme::Button;
 use iced::widget::container::StyleSheet;
 use iced::widget::{
-    button, column, combo_box, container, horizontal_space, image, keyed_column, pick_list, row,
-    scrollable, slider, text, text_input, ComboBox,
+    button, checkbox, column, combo_box, container, horizontal_space, image, keyed_column,
+    pick_list, row, scrollable, slider, text, text_input, ComboBox,
 };
 use iced::{Alignment, Color, Element, Font, Length, Padding, Sandbox, Settings, Theme};
 use iced_aw::{drop_down, number_input, DropDown, Wrap, BOOTSTRAP_FONT};
@@ -52,6 +52,8 @@ enum Message {
     SaveFile,
     SelectAssetsFolder,
     ClearAssets,
+    UpdateSaveName(String),
+    ToggleIronMan(bool),
     SelectSoldier { id: u32 },
     UpdateName(String),
     UpdateNationality(String),
@@ -169,6 +171,14 @@ impl Sandbox for Editor {
 
             if let Message::ClearAssets = message {
                 *assets = None;
+            }
+
+            if let Message::UpdateSaveName(ref name) = message {
+                save.save_name = name.clone();
+            }
+
+            if let Message::ToggleIronMan(status) = message {
+                save.iron_man = status;
             }
 
             if let Message::SelectSoldier { id } = message {
@@ -308,24 +318,27 @@ impl Sandbox for Editor {
                 nationality_combo_box_state,
                 show_face_picker,
                 ..
-            } => row![
-                view_soldier_list(save, *selected_soldier_id),
-                match save.get_soldier(*selected_soldier_id as u32) {
-                    Some(soldier) => view_soldier_editor(
-                        soldier,
-                        assets,
-                        *show_flag_drop_down,
-                        nationality_combo_box_state,
-                        *show_face_picker
-                    ),
-                    None => text("Select a soldier to edit")
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .vertical_alignment(Vertical::Center)
-                        .horizontal_alignment(Horizontal::Center)
-                        .size(30)
-                        .into(),
-                }
+            } => column![
+                view_save_editor(save),
+                row![
+                    view_soldier_list(save, *selected_soldier_id),
+                    match save.get_soldier(*selected_soldier_id as u32) {
+                        Some(soldier) => view_soldier_editor(
+                            soldier,
+                            assets,
+                            *show_flag_drop_down,
+                            nationality_combo_box_state,
+                            *show_face_picker
+                        ),
+                        None => text("Select a soldier to edit")
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .vertical_alignment(Vertical::Center)
+                            .horizontal_alignment(Horizontal::Center)
+                            .size(30)
+                            .into(),
+                    }
+                ]
             ]
             .into(),
             Editor::NoData => text("Open a Xenonauts save file")
@@ -396,6 +409,19 @@ fn view_asset_file_controls(assets: &Option<Assets>) -> Element<Message> {
         ]
         .into(),
     }
+}
+
+fn view_save_editor(save: &Save) -> Element<Message> {
+    row![
+        text("Save Name").size(20.0),
+        text_input("Save Name", save.save_name.as_str()).width(Length::Fixed(400.0)).on_input(Message::UpdateSaveName),
+        horizontal_space().width(Length::Fixed(20.0)),
+        checkbox("Iron Man Enabled", save.iron_man).on_toggle(Message::ToggleIronMan),
+    ]
+    .spacing(10)
+    .padding(10)
+    .align_items(Alignment::Center)
+    .into()
 }
 
 fn view_soldier_list(save: &Save, selected_soldier_id: u32) -> Element<Message> {
