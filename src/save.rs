@@ -49,14 +49,14 @@ impl Save {
     pub fn get_soldier(&self, id: u32) -> Option<&Soldier> {
         self.soldiers
             .iter()
-            .filter(|soldier| soldier.id == id as u32)
+            .filter(|soldier| soldier.id == id)
             .last()
     }
 
     pub fn get_soldier_mut(&mut self, id: u32) -> Option<&mut Soldier> {
         self.soldiers
             .iter_mut()
-            .filter(|soldier| soldier.id == id as u32)
+            .filter(|soldier| soldier.id == id)
             .last()
     }
 }
@@ -71,7 +71,7 @@ pub fn parse_save(input: &[u8]) -> IResult<&[u8], Save> {
 
     let (unparsed, (file_start, save_name, feature_guards, _, save_time, unknown, iron_man)) =
         tuple((
-            take(8 as u8),
+            take(8_u8),
             map_res(length_data(le_u32), parse_string),
             take_until(FEATURE_GUARDS_END),
             take(FEATURE_GUARDS_END.len()),

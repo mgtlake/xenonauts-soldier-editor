@@ -1,4 +1,4 @@
-use std::{collections::HashSet, error::Error, fs, path::PathBuf};
+use std::{error::Error, fs, path::PathBuf};
 
 use itertools::Itertools;
 use regex::Regex;
@@ -16,12 +16,9 @@ pub fn find_xenonauts_assets_folder() -> Option<PathBuf> {
     ]
     .to_vec();
 
-    for path in paths_to_check {
-        if let Ok(_) = fs::read_dir(path.clone()) {
-            return Some(path);
-        }
-    }
-    None
+    paths_to_check
+        .into_iter()
+        .find(|path| fs::read_dir(path.clone()).is_ok())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -103,8 +100,7 @@ impl Assets {
                     key: f
                         .file_name()
                         .to_string_lossy()
-                        .into_owned()
-                        .split(".")
+                        .split('.')
                         .next()
                         .unwrap()
                         .to_string(),

@@ -1,25 +1,20 @@
 use std::error::Error;
 use std::fs;
 use std::option::Option::{None, Some};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::result::Result::{Err, Ok};
-use std::time::Instant;
 
 use iced::advanced::graphics::core::font;
 use iced::alignment::{Horizontal, Vertical};
-use iced::theme::palette::Background;
 use iced::theme::Button;
-use iced::widget::container::StyleSheet;
 use iced::widget::{
     button, checkbox, column, combo_box, container, horizontal_space, image, keyed_column,
-    pick_list, row, scrollable, slider, text, text_input, ComboBox,
+    pick_list, row, scrollable, slider, text, text_input,
 };
 use iced::{Alignment, Color, Element, Font, Length, Padding, Sandbox, Settings, Theme};
 use iced_aw::{drop_down, number_input, DropDown, Wrap, BOOTSTRAP_FONT};
 use itertools::Itertools;
-use rayon::prelude::*;
 use rfd::{FileDialog, MessageDialog, MessageLevel};
-use rust_search::{FilterExt, SearchBuilder};
 
 use crate::assets::{self, Assets, FacePath, KeyedPath, KeyedString};
 use crate::save::{self, Save};
@@ -109,8 +104,8 @@ impl Sandbox for Editor {
                 *self = match save_or_error {
                     Ok(save) => {
                         let selected_soldier_id =
-                            save.soldiers.get(0).map(|soldier| soldier.id).unwrap_or(0);
-                        let assets = xenonauts_asset_path.map(|path| Assets::new(path));
+                            save.soldiers.first().map(|soldier| soldier.id).unwrap_or(0);
+                        let assets = xenonauts_asset_path.map(Assets::new);
                         let nationality_combo_box_state = match assets.clone() {
                             Some(assets) => build_nationality_combo_box_state(
                                 &assets,
@@ -174,7 +169,7 @@ impl Sandbox for Editor {
             }
 
             if let Message::UpdateSaveName(ref name) = message {
-                save.save_name = name.clone();
+                save.save_name.clone_from(name);
             }
 
             if let Message::ToggleIronMan(status) = message {
@@ -182,7 +177,7 @@ impl Sandbox for Editor {
             }
 
             if let Message::SelectSoldier { id } = message {
-                *selected_soldier_id = id as u32;
+                *selected_soldier_id = id;
                 *show_face_picker = false;
                 if let Some(assets) = assets {
                     *nationality_combo_box_state =
@@ -218,7 +213,7 @@ impl Sandbox for Editor {
                     }
                     Message::UpdateFlag(flag) => {
                         *show_flag_drop_down = false;
-                        soldier.nation = flag.clone();
+                        soldier.nation.clone_from(&flag);
                     }
                     Message::GenderSelected(gender) => {
                         soldier.gender = gender;
@@ -322,7 +317,7 @@ impl Sandbox for Editor {
                 view_save_editor(save),
                 row![
                     view_soldier_list(save, *selected_soldier_id),
-                    match save.get_soldier(*selected_soldier_id as u32) {
+                    match save.get_soldier(*selected_soldier_id) {
                         Some(soldier) => view_soldier_editor(
                             soldier,
                             assets,
@@ -366,7 +361,7 @@ fn view_file_controls(editor: &Editor) -> Element<Message> {
             })
             .size(20),
             match editor {
-                Editor::Save { assets, .. } => view_asset_file_controls(&assets),
+                Editor::Save { assets, .. } => view_asset_file_controls(assets),
                 _ => row![].into(),
             },
         ]
@@ -414,7 +409,9 @@ fn view_asset_file_controls(assets: &Option<Assets>) -> Element<Message> {
 fn view_save_editor(save: &Save) -> Element<Message> {
     row![
         text("Save Name").size(20.0),
-        text_input("Save Name", save.save_name.as_str()).width(Length::Fixed(400.0)).on_input(Message::UpdateSaveName),
+        text_input("Save Name", save.save_name.as_str())
+            .width(Length::Fixed(400.0))
+            .on_input(Message::UpdateSaveName),
         horizontal_space().width(Length::Fixed(20.0)),
         checkbox("Iron Man Enabled", save.iron_man).on_toggle(Message::ToggleIronMan),
     ]
@@ -430,10 +427,10 @@ fn view_soldier_list(save: &Save, selected_soldier_id: u32) -> Element<Message> 
             (
                 soldier.id,
                 button(text(soldier.name.as_str()).font(Font {
-                    weight: if soldier.carrier.len() > 0 {
-                        font::Weight::Bold
-                    } else {
+                    weight: if soldier.carrier.is_empty() {
                         font::Weight::Normal
+                    } else {
+                        font::Weight::Bold
                     },
                     ..Font::default()
                 }))
@@ -499,7 +496,7 @@ fn view_soldier_editor<'a>(
                     match assets {
                         Some(assets) => view_soldier_nationality_combobox(
                             assets.string_by_key(&soldier.nationality),
-                            &nationality_combo_box_state
+                            nationality_combo_box_state
                         ),
                         None => text_input("Soldier nationality", soldier.nationality.as_str())
                             .on_input(Message::UpdateNationality)
@@ -575,7 +572,6 @@ fn view_soldier_editor<'a>(
                 ]
                 .into(),
             },]
-            // .width(Length::Fixed(250.0))
             .spacing(10)
         ]
         .spacing(20),
@@ -647,7 +643,7 @@ fn view_soldier_nationality_combobox<'a>(
     state: &'a combo_box::State<KeyedString>,
 ) -> Element<'a, Message> {
     combo_box(
-        &state,
+        state,
         "Soldier nationality",
         current,
         Message::UpdateNationalityFromAssets,
@@ -657,11 +653,11 @@ fn view_soldier_nationality_combobox<'a>(
 
 fn view_soldier_asset_picklist<'a>(
     current: &'a Vec<u8>,
-    options: &'a Vec<KeyedString>,
+    options: &'a [KeyedString],
     on_selected: impl Fn(KeyedString) -> Message + 'a,
 ) -> Element<'a, Message> {
     pick_list(
-        options.clone(),
+        options.to_owned(),
         options
             .iter()
             .filter(|ks| ks.key.as_bytes() == current)
@@ -673,7 +669,7 @@ fn view_soldier_asset_picklist<'a>(
 
 fn view_soldier_flag_dropdown<'a>(
     current: &String,
-    options: &'a Vec<KeyedPath>,
+    options: &'a [KeyedPath],
     show_flag_drop_down: bool,
 ) -> Element<'a, Message> {
     let underlay = button(
@@ -795,10 +791,6 @@ fn icon<'a, Message>(codepoint: char) -> Element<'a, Message> {
     text(codepoint).font(BOOTSTRAP_FONT).into()
 }
 
-fn icon_with_size<'a, Message>(codepoint: char, size: u16) -> Element<'a, Message> {
-    text(codepoint).font(BOOTSTRAP_FONT).size(size).into()
-}
-
 fn load_save(filepath: &PathBuf) -> Result<Save, Box<dyn Error>> {
     let file = fs::read(filepath)?;
     let (_, save) = save::parse_save(&file).map_err(|err| err.to_owned())?;
@@ -814,12 +806,5 @@ fn build_nationality_combo_box_state(
         .get_soldier(selected_soldier_id)
         .and_then(|soldier| assets.string_by_key(&soldier.nationality));
 
-    combo_box::State::with_selection(
-        assets
-            .all_strings
-            .iter()
-            .map(|ks| ks.clone())
-            .collect::<Vec<KeyedString>>(),
-        initial_search,
-    )
+    combo_box::State::with_selection(assets.all_strings.to_vec(), initial_search)
 }
